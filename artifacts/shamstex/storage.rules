@@ -1,0 +1,125 @@
+rules_version = '2';
+
+// Shams Tex Storage Security Rules
+// Deploy with: firebase deploy --only storage
+//
+// The app uploads media to these top-level folders (see utils/persistImage.ts):
+//   - images/            → product images, banner images (public read, staff write)
+//   - videos/            → banner videos (public read, staff write)
+//   - proofs/<orderId>/  → sensitive transfer-proof / return images (private)
+// These rules MUST match those paths or every upload is rejected by the
+// default-deny rule at the bottom.
+//
+// Phone-number formats: Firebase Phone Auth provides E.164 (+20...), while some
+// legacy customer docs are stored in local format (01...). getRole() checks both
+// so staff are recognized regardless of how their doc id was saved.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // E.164 phone exactly as provided by Firebase Auth (e.g. +201001234567).
+    function authPhone() {
+      return isSignedIn() && request.auth.token.phone_number != null
+        ? request.auth.token.phone_number
+        : '';
+    }
+
+    // Local Egyptian format (e.g. 01001234567) derived from the E.164 token.
+    function localPhone() {
+      return authPhone() != '' ? authPhone().replace('^\\+20', '0') : '';
+    }
+
+    // Owner phones are always treated as admin, even without a Firestore doc.
+    function isOwnerPhone() {
+      return authPhone() == '+201221131138';
+    }
+
+    function roleAt(phone) {
+      return firestore.exists(/databases/(default)/documents/customers/$(phone))
+        ? firestore.get(/databases/(default)/documents/customers/$(phone)).data.get('role', '')
+        : '';
+    }
+
+    // Resolve role by trying the E.164 doc id first, then the local-format id.
+    function getRole() {
+      return roleAt(authPhone()) != '' ? roleAt(authPhone()) : roleAt(localPhone());
+    }
+
+    function isStaff() {
+      return isSignedIn() && (
+        isOwnerPhone() ||
+        getRole() == 'admin' ||
+        getRole() == 'supervisor' ||
+        getRole() == 'employee'
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (isOwnerPhone() || getRole() == 'admin');
+    }
+
+    // True when the signed-in user owns the given order (their phone matches the
+    // order's userPhone, in either E.164 or local format). Used to bind a
+    // proofs/<orderId>/ upload to the order it belongs to.
+    function ownsOrder(orderId) {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/orders/$(orderId))
+        && (
+          firestore.get(/databases/(default)/documents/orders/$(orderId)).data.get('userPhone', '') == authPhone() ||
+          firestore.get(/databases/(default)/documents/orders/$(orderId)).data.get('userPhone', '') == localPhone()
+        );
+    }
+
+    // ---- Public product/banner images ----
+    // Public read (catalog is public); only staff may upload/replace them.
+    match /images/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff()
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isStaff();
+    }
+
+    // ---- Public banner videos (staff only) ----
+    match /videos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff()
+        && request.resource.size < 100 * 1024 * 1024
+        && request.resource.contentType.matches('video/.*');
+      allow delete: if isStaff();
+    }
+
+    // ---- Private order images: transfer proofs + return invoices ----
+    // Not public. Files live under proofs/<orderId>/<file>. Only the order's
+    // owner or staff may read; only the owner or staff may upload, and the
+    // upload must be bound to an order they own (staff may upload to any order).
+    match /proofs/{orderId}/{fileName} {
+      allow read: if isStaff() || ownsOrder(orderId);
+      allow create: if (isStaff() || ownsOrder(orderId))
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow update, delete: if isStaff();
+    }
+
+    // ---- Legacy product media path (kept for backward compatibility) ----
+    match /products/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff()
+        && request.resource.size < 100 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('image/.*') ||
+          request.resource.contentType.matches('video/.*')
+        );
+      allow delete: if isStaff();
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

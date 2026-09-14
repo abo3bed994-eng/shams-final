@@ -1,0 +1,50 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "QvyVrR61QEAnMD8FumF_X"
+uri = "file://artifacts/shamstex/assets/images/icon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "_B1Ahm8-WfADiaGSXz_rz"
+uri = "file://artifacts/shamstex/assets/images/splash-background.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "wBtBgFjoq6DEjEi5MO1DK"
+uri = "file://artifacts/shamstex/assets/images/hero-fabrics.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "a6J4cO57jv--5DCCoEB2o"
+uri = "file://artifacts/shamstex/assets/images/icon-new.png"
+type = "image"
+title = "Shams Tex app icon"
+
+[[generated]]
+id = "xvQsbOPnxdcoekopODJ13"
+uri = "file://artifacts/shamstex/assets/images/adaptive-icon.png"
+type = "image"
+title = "Adaptive icon foreground"
+
+[[generated]]
+id = "lvAi63mGKaC3qU-S2niMy"
+uri = "file://artifacts/mockup-sandbox/public/images/fabric-burgundy-silk.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "ji0gh5ybckanpI6wIFc2Y"
+uri = "file://artifacts/mockup-sandbox/public/images/fabric-navy-herringbone.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "MH_Izn2B-x7qWHYJkdWjh"
+uri = "file://artifacts/mockup-sandbox/public/images/fabric-classic-black.png"
+type = "image"
+title = "generated_image"

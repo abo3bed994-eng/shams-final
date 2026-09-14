@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/ar-tryon/"
+title = "Shams Tex AR — تجربة القماش بالكاميرا"
+version = "1.0.0"
+id = "artifacts/ar-tryon"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/ar-tryon/" ]
+localPort = 25297
+
+[services.development]
+run = "pnpm --filter @workspace/ar-tryon run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ar-tryon", "run", "build" ]
+publicDir = "artifacts/ar-tryon/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25297"
+BASE_PATH = "/ar-tryon/"

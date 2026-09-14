@@ -1,0 +1,140 @@
+rules_version = '2';
+
+// =====================================================================
+// Shams Tex — Firestore Security Rules
+// Deploy via Firebase Console > Firestore Database > Rules tab,
+// then click "Publish".
+//
+// Security model: phone-based identity (auth.token.phone_number).
+// Staff = customers doc with role in (employee, supervisor, admin).
+// =====================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function userPhone() {
+      return request.auth != null ? request.auth.token.phone_number : null;
+    }
+
+    function userRecord() {
+      return get(/databases/$(database)/documents/customers/$(userPhone())).data;
+    }
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isStaff() {
+      return isAuthed() && userRecord().role in ['employee', 'supervisor', 'admin'];
+    }
+
+    function isAdmin() {
+      return isAuthed() && userRecord().role == 'admin';
+    }
+
+    function isSupervisorOrAdmin() {
+      return isAuthed() && userRecord().role in ['supervisor', 'admin'];
+    }
+
+    // -----------------------------------------------------------------
+    // CUSTOMERS — phone is the doc ID
+    // -----------------------------------------------------------------
+    match /customers/{phone} {
+      allow read: if isAuthed() && (phone == userPhone() || isStaff());
+      // user creates own record on signup
+      allow create: if isAuthed() && phone == userPhone();
+      // user can edit own non-privileged fields; only supervisors/admins change role
+      allow update: if isAuthed() && (
+        (phone == userPhone() &&
+         request.resource.data.role == resource.data.role &&
+         request.resource.data.permissions == resource.data.permissions)
+        || isSupervisorOrAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // -----------------------------------------------------------------
+    // ORDERS — customers see/modify only their own; staff see all
+    // -----------------------------------------------------------------
+    match /orders/{orderId} {
+      allow read: if isAuthed() && (resource.data.userId == request.auth.uid || isStaff());
+      allow create: if isAuthed() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthed() && (
+        (resource.data.userId == request.auth.uid && resource.data.editable == true) ||
+        isStaff()
+      );
+      allow delete: if isStaff();
+    }
+
+    // -----------------------------------------------------------------
+    // PRODUCTS — public read, staff write
+    // -----------------------------------------------------------------
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // -----------------------------------------------------------------
+    // CONFIG — public read (settings, minVersion); admin write
+    // -----------------------------------------------------------------
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isSupervisorOrAdmin();
+    }
+
+    // -----------------------------------------------------------------
+    // NOTIFICATIONS — anyone authed can create; read filtered server-side
+    // -----------------------------------------------------------------
+    match /notifications/{notifId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      allow update, delete: if isStaff();
+    }
+
+    // -----------------------------------------------------------------
+    // RETURN REQUESTS
+    // -----------------------------------------------------------------
+    match /returnRequests/{reqId} {
+      allow read: if isAuthed() && (resource.data.userId == request.auth.uid || isStaff());
+      allow create: if isAuthed() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isStaff();
+    }
+
+    // -----------------------------------------------------------------
+    // SESSIONS — phone-keyed; only owner reads/writes
+    // -----------------------------------------------------------------
+    match /sessions/{phone} {
+      allow read, write: if isAuthed() && phone == userPhone();
+    }
+
+    // -----------------------------------------------------------------
+    // PRESENCE — anyone authed reads (for online counter); writes own
+    // -----------------------------------------------------------------
+    match /presence/{userId} {
+      allow read: if isStaff();
+      allow write: if isAuthed() && userId == request.auth.uid;
+    }
+
+    // -----------------------------------------------------------------
+    // PUSH TOKENS — owner writes own, staff reads for fan-out
+    // -----------------------------------------------------------------
+    match /pushTokens/{phone} {
+      allow read: if isStaff();
+      allow write: if isAuthed() && phone == userPhone();
+    }
+
+    // -----------------------------------------------------------------
+    // AUDIT LOG — append-only; supervisors+ read; never modify/delete
+    // -----------------------------------------------------------------
+    match /audit_log/{logId} {
+      allow read: if isSupervisorOrAdmin();
+      allow create: if isAuthed();
+      allow update, delete: if false;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,244 @@
+// Shams Tex Firestore Security Rules
+// Deploy with: firebase deploy --only firestore:rules
+//
+// Real Firebase Phone Auth is wired (see lib/phoneAuth.ts), so these rules can
+// be deployed safely. Phone numbers are stored as E.164 (+20...) for new
+// accounts; legacy local-format docs created before the migration are still
+// matched by the same authenticated phone (auth.token.phone_number is always
+// E.164) only when the doc id matches that exact value — otherwise they are
+// inaccessible until re-saved under the canonical E.164 id by the client.
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============ Helpers ============
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userPhone() {
+      // We use phone as document ID for customers; the auth token's phone_number must match.
+      return request.auth.token.phone_number;
+    }
+
+    function getRole(phone) {
+      return get(/databases/$(database)/documents/customers/$(phone)).data.role;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && getRole(userPhone()) == role;
+    }
+
+    // Owner phone numbers — auto-recognized as admin even without a Firestore doc.
+    // This ensures the owner can always manage settings and orders, even on first login.
+    function isOwnerPhone() {
+      return isSignedIn() &&
+        request.auth.token.phone_number == '+201221131138';
+    }
+
+    function isAdmin() {
+      return hasRole('admin') || isOwnerPhone();
+    }
+
+    function isStaff() {
+      return isSignedIn() && (
+        isOwnerPhone() ||
+        getRole(userPhone()) == 'admin' ||
+        getRole(userPhone()) == 'supervisor' ||
+        getRole(userPhone()) == 'employee'
+      );
+    }
+
+    function hasPermission(perm) {
+      return isSignedIn() &&
+        perm in get(/databases/$(database)/documents/customers/$(userPhone())).data.permissions;
+    }
+
+    // ============ Customers / Users ============
+    // doc id = phone number
+    match /customers/{phone} {
+      // Anyone signed in can read their own profile; staff can read all
+      allow read: if isSignedIn() && (phone == userPhone() || isStaff());
+
+      // A user may create their OWN doc but cannot self-promote and cannot
+      // grant themselves any privileged permissions or VIP status.
+      allow create: if isSignedIn() && phone == userPhone()
+        && request.resource.data.role in ['customer', 'merchant']
+        && request.resource.data.get('permissions', []).size() == 0
+        && request.resource.data.get('vip', false) == false;
+
+      // Self-update: allowed except role/permissions/vip changes
+      allow update: if isSignedIn() && phone == userPhone()
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.get('permissions', []) == resource.data.get('permissions', [])
+        && request.resource.data.get('vip', false) == resource.data.get('vip', false);
+
+      // Admin can do anything on customers (except delete is below).
+      allow write: if isAdmin();
+
+      // Staff with manage_staff can create/update other users, BUT:
+      //   - cannot edit their own customer doc through this path
+      //     (prevents self-promotion / self-permission grants);
+      //   - cannot grant the admin role (only an admin can mint admins).
+      allow create: if isStaff() && hasPermission('manage_staff')
+        && phone != userPhone()
+        && request.resource.data.role != 'admin';
+      allow update: if isStaff() && hasPermission('manage_staff')
+        && phone != userPhone()
+        && request.resource.data.role != 'admin'
+        && resource.data.role != 'admin';
+
+      allow delete: if isAdmin();
+    }
+
+    // ============ Products ============
+    match /products/{productId} {
+      allow read: if true; // catalog is public
+      allow write: if isAdmin() || hasPermission('edit_products');
+    }
+
+    // ============ Orders ============
+    match /orders/{orderId} {
+      // Customer can read their own order; staff can read all
+      allow read: if isSignedIn() && (
+        resource.data.userPhone == userPhone() || isStaff()
+      );
+
+      // Customer can create their own order
+      allow create: if isSignedIn()
+        && request.resource.data.userPhone == userPhone()
+        && request.resource.data.status in ['pending', 'scheduled'];
+
+      // Customer may edit only their own order if it is editable
+      allow update: if isSignedIn() && resource.data.userPhone == userPhone()
+        && resource.data.get('editable', false) == true
+        && request.resource.data.status == resource.data.status;
+
+      // Customer may update payment-only fields (method, fee, totals derived
+      // from method, transfer-proof image) on their own order while it is still
+      // pending/scheduled — without requiring `editable=true`. Status, items,
+      // assignment, and ownership must NOT change.
+      allow update: if isSignedIn()
+        && resource.data.userPhone == userPhone()
+        && resource.data.status in ['pending', 'scheduled']
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.userPhone == resource.data.userPhone
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'paymentMethod', 'paymentFee', 'totalWithFee', 'transferProofImage'
+          ]);
+
+      // Customer may cancel their own order while it is still pending or
+      // scheduled (i.e. before staff has started working on it). Only the
+      // status field may change, and it must transition to 'cancelled'.
+      allow update: if isSignedIn()
+        && resource.data.userPhone == userPhone()
+        && resource.data.status in ['pending', 'scheduled']
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.userPhone == resource.data.userPhone
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+
+      // Staff can update orders (status, assignment, etc.)
+      allow update: if isStaff() && (isAdmin() || hasPermission('edit_orders'));
+
+      // Staff with manage_payments may set payment-override fields even
+      // without full edit_orders permission.
+      allow update: if isStaff()
+        && (isAdmin() || hasPermission('manage_payments'))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'paymentOverrideHandle', 'paymentOverrideName', 'paymentMethod',
+            'paymentFee', 'totalWithFee'
+          ]);
+
+      // Only admin can delete orders
+      allow delete: if isAdmin();
+    }
+
+    // ============ Notifications ============
+    // Customers/merchants only get their own targeted notifications + role/all
+    // broadcasts. Staff can read everything. This pairs with the scoped
+    // subscriptions in lib/firebase.ts (subscribeNotificationsForUser).
+    match /notifications/{notifId} {
+      allow read: if isSignedIn() && (
+        isStaff() ||
+        resource.data.get('targetUserPhone', '') == userPhone() ||
+        resource.data.get('targetRole', '') == 'all' ||
+        resource.data.get('targetRole', '') == getRole(userPhone())
+      );
+      // Mark-as-read: only the `read` flag may change, and only on a
+      // notification the user is allowed to read (same predicate as above).
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && (
+          isStaff() ||
+          resource.data.get('targetUserPhone', '') == userPhone() ||
+          resource.data.get('targetRole', '') == 'all' ||
+          resource.data.get('targetRole', '') == getRole(userPhone())
+        );
+      // Staff can also fully update notifications they manage.
+      allow update: if isStaff();
+      allow create: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ============ Settings (Config) ============
+    match /config/{docId} {
+      allow read: if true; // pricing settings, payment info — public read
+      allow write: if isAdmin()
+        || hasPermission('manage_settings')
+        || hasPermission('manage_payments');
+    }
+
+    // ============ Return Requests ============
+    match /returnRequests/{reqId} {
+      allow read: if isSignedIn() && (
+        resource.data.userPhone == userPhone() || isStaff()
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.userPhone == userPhone();
+      allow update: if isStaff() && (isAdmin() || hasPermission('edit_orders') || hasPermission('cancel_returns'));
+      allow delete: if isAdmin();
+    }
+
+    // ============ Sessions (single-device login) ============
+    match /sessions/{phone} {
+      // Only the owning phone can read/write its session token
+      allow read, write: if isSignedIn() && phone == userPhone();
+    }
+
+    // ============ OTP rate limiting ============
+    // Accessed BEFORE Firebase Auth (during phone-number step), so unauthenticated
+    // reads/writes are allowed but with strict shape & monotonic count constraints
+    // to prevent tampering. Limit enforced client-side: 3 per 24h.
+    match /otpThrottle/{phone} {
+      allow read: if true;
+      allow create: if request.resource.data.count == 1
+        && request.resource.data.windowStart is int;
+      allow update: if (
+        // Same window — count must increment by exactly 1 and stay <= 10.
+        (request.resource.data.windowStart == resource.data.windowStart
+         && request.resource.data.count == resource.data.count + 1
+         && request.resource.data.count <= 10)
+        ||
+        // New window — reset to count = 1.
+        (request.resource.data.windowStart > resource.data.windowStart
+         && request.resource.data.count == 1)
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ============ Push Tokens ============
+    match /pushTokens/{phone} {
+      // User manages their own token; staff can read all to broadcast
+      allow read: if isSignedIn() && (phone == userPhone() || isStaff());
+      allow write: if isSignedIn() && phone == userPhone();
+      allow delete: if isSignedIn() && (phone == userPhone() || isAdmin());
+    }
+
+    // Default: deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -876,6 +876,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           notifWatermarkRef.current = maxCreated;
           const forMe = newOnes.filter((n) => {
             if (!me) return false;
+            const mePhone = migrateLocalToE164(me.phone);
             if (n.targetUserId === "self") return false;
             if (n.sourceUserId === me.id) return false;
             // Direct-to-user notifications: match by id OR phone. Non-staff
@@ -886,7 +887,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (n.targetUserId || n.targetUserPhone) {
               return (
                 (!!n.targetUserId && n.targetUserId === me.id) ||
-                (!!n.targetUserPhone && n.targetUserPhone === me.phone)
+                (!!n.targetUserPhone && n.targetUserPhone === mePhone)
               );
             }
             // Role-targeted notifications: must match role exactly or be a
@@ -1349,7 +1350,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           (!!userId && c.id === userId) ||
           (!!userPhone && samePhone(c.phone, userPhone))
       );
-      return rec?.phone ?? userPhone ?? "";
+      return migrateLocalToE164(rec?.phone ?? userPhone ?? "");
     },
     []
   );
@@ -1905,7 +1906,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           targetUserPhone: recipientPhone,
           linkedOrderId: orderId,
         };
-        FS.saveNotification(custNotif).catch(() => {});
+        FS.saveNotification(custNotif).catch((error) => {
+          console.warn("[order-status-notification] Firestore save failed:", error);
+        });
         if (recipientPhone) {
           notifyUserByPhone(
             recipientPhone,

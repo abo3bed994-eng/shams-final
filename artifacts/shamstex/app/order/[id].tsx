@@ -993,50 +993,6 @@ export default function OrderDetailScreen() {
                   )}
                 </View>
               </View>
-              {item.companions?.length ? (
-                <View style={[styles.companionList, { backgroundColor: colors.gold + "0D", borderColor: colors.gold + "33" }]}>
-                  <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 11, textAlign: "right" }}>الخامات المرافقة</Text>
-                  {item.companions.map((companion, companionIndex) => (
-                    <View key={`${companion.materialId}-${companionIndex}`} style={{ gap: 5 }}>
-                      <View style={styles.companionLine}>
-                        <Text style={[styles.companionPrice, { color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 11 }]}>{Math.round(companionLineTotal(companion) * 100) / 100} ج.م</Text>
-                        <Text style={[styles.companionText, { color: colors.foreground, fontFamily: "Inter_400Regular", fontSize: 11 }]}>
-                          {companion.materialName} — {companion.colorName} · {companion.percentage}% · {Math.round(companionAmount(companion) * 100) / 100} {companion.unit === "meter" ? "متر" : "كغ"}
-                        </Text>
-                      </View>
-                      {isStaff && order.status === "preparing" && !isLockedByOther && (
-                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
-                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
-                            الوزن الفعلي:
-                          </Text>
-                          <TextInput
-                            value={weightTexts[`c_${index}_${companionIndex}`] ?? String(companionAmount(companion))}
-                            onChangeText={(value) => {
-                              if (/^\d*\.?\d*$/.test(value)) {
-                                setWeightTexts((current) => ({ ...current, [`c_${index}_${companionIndex}`]: value }));
-                              }
-                            }}
-                            onBlur={() => {
-                              const key = `c_${index}_${companionIndex}`;
-                              saveCompanionWeight(index, companionIndex, weightTexts[key] ?? String(companionAmount(companion)));
-                            }}
-                            onSubmitEditing={() => {
-                              const key = `c_${index}_${companionIndex}`;
-                              saveCompanionWeight(index, companionIndex, weightTexts[key] ?? String(companionAmount(companion)));
-                            }}
-                            keyboardType="decimal-pad"
-                            textAlign="center"
-                            style={{ width: 82, paddingVertical: 5, paddingHorizontal: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 7, backgroundColor: colors.input, color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 11 }}
-                          />
-                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
-                            {companion.unit === "meter" ? "متر" : "كغ"}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              ) : null}
               <View style={[styles.orderItemLeft, { gap: 10 }]}>
                 {item.orderType === "weight" ? (
                   <View style={{ alignItems: "flex-start", gap: 4 }}>
@@ -1324,6 +1280,50 @@ export default function OrderDetailScreen() {
                   </Pressable>
                 )}
               </View>
+              {item.companions?.length ? (
+                <View style={[styles.companionList, { backgroundColor: colors.gold + "0D", borderColor: colors.gold + "33" }]}>
+                  <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 11, textAlign: "right" }}>الخامات المرافقة</Text>
+                  {item.companions.map((companion, companionIndex) => (
+                    <View key={`${companion.materialId}-${companionIndex}`} style={{ gap: 5 }}>
+                      <View style={styles.companionLine}>
+                        <Text style={[styles.companionPrice, { color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 11 }]}>{Math.round(companionLineTotal(companion) * 100) / 100} ج.م</Text>
+                        <Text style={[styles.companionText, { color: colors.foreground, fontFamily: "Inter_400Regular", fontSize: 11 }]}>
+                          {companion.materialName} — {companion.colorName} · {companion.percentage}% · {Math.round(companionAmount(companion) * 100) / 100} {companion.unit === "meter" ? "متر" : "كغ"}
+                        </Text>
+                      </View>
+                      {isStaff && order.status === "preparing" && !isLockedByOther && (
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
+                            الوزن الفعلي:
+                          </Text>
+                          <TextInput
+                            value={weightTexts[`c_${index}_${companionIndex}`] ?? String(companionAmount(companion))}
+                            onChangeText={(value) => {
+                              if (/^\d*\.?\d*$/.test(value)) {
+                                setWeightTexts((current) => ({ ...current, [`c_${index}_${companionIndex}`]: value }));
+                              }
+                            }}
+                            onBlur={() => {
+                              const key = `c_${index}_${companionIndex}`;
+                              saveCompanionWeight(index, companionIndex, weightTexts[key] ?? String(companionAmount(companion)));
+                            }}
+                            onSubmitEditing={() => {
+                              const key = `c_${index}_${companionIndex}`;
+                              saveCompanionWeight(index, companionIndex, weightTexts[key] ?? String(companionAmount(companion)));
+                            }}
+                            keyboardType="decimal-pad"
+                            textAlign="center"
+                            style={{ width: 82, paddingVertical: 5, paddingHorizontal: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 7, backgroundColor: colors.input, color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 11 }}
+                          />
+                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                            {companion.unit === "meter" ? "متر" : "كغ"}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </View>
           ))}
           <View style={{ height: 1, backgroundColor: colors.border }} />
@@ -1481,7 +1481,7 @@ export default function OrderDetailScreen() {
           );
         })()}
 
-        {isStaff && order.status === "preparing" && !isLockedByOther && (
+        {isStaff && ["scheduled", "pending", "received", "preparing"].includes(order.status) && !isLockedByOther && (
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

@@ -38,19 +38,23 @@ function unitLabel(unit: ProductUnit | undefined): string {
   return UNIT_LABELS[unit ?? "kilo"];
 }
 
+function defaultPieceAmount(quantity: number, unit: ProductUnit | undefined): number {
+  return quantity * (unit === "meter" ? 100 : 20);
+}
+
 function itemMeasure(item: CartItem, product?: Product): string {
+  const unit = product?.unit ?? item.unit ?? "kilo";
   if (item.orderType === "pieces") {
-    return `${formatNumber(item.quantity)} ثوب`;
+    return `${formatNumber(item.quantity)} ثوب — ${formatNumber(defaultPieceAmount(item.quantity, unit))} ${unitLabel(unit)} (افتراضي)`;
   }
 
-  const unit = product?.unit ?? item.unit ?? "kilo";
   const amount = item.actualWeight ?? item.weight ?? item.quantity;
   return `${formatNumber(amount)} ${unitLabel(unit)}`;
 }
 
 function companionMeasure(companion: NonNullable<CartItem["companions"]>[number]): string {
   if (companion.orderType === "pieces") {
-    return `${formatNumber(companion.quantity)} ثوب`;
+    return `${formatNumber(companion.quantity)} ثوب — ${formatNumber(defaultPieceAmount(companion.quantity, companion.unit))} ${unitLabel(companion.unit)} (افتراضي)`;
   }
 
   return `${formatNumber(companionAmount(companion))} ${unitLabel(companion.unit)}`;

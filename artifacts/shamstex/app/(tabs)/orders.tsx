@@ -2,9 +2,9 @@ import React, { useMemo, useState } from "react";
 import {
   Alert,
   Animated,
+  FlatList,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,7 +14,7 @@ import { router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, Order, OrderStatus } from "@/context/AppContext";
+import { useApp, Order, OrderStatus, ReturnRequest } from "@/context/AppContext";
 import { useCartPulse } from "@/hooks/useCartPulse";
 import { useTranslation } from "@/lib/i18n";
 import OrderCard from "@/components/OrderCard";
@@ -73,15 +73,17 @@ export default function OrdersScreen() {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   ), [filteredUnsorted]);
 
-  const filteredReturns = useMemo(() => filter === "returns"
-    ? (isStaff && search.trim()
-        ? myReturns.filter((r) =>
-            r.userName.toLowerCase().includes(search.trim().toLowerCase()) ||
-            r.userPhone.includes(search.trim()) ||
-            r.orderId.toLowerCase().startsWith(search.trim().toLowerCase())
-          )
-        : myReturns)
-    : [], [filter, isStaff, search, myReturns]);
+  const filteredReturns = useMemo(() => {
+    if (filter !== "returns") return [];
+    const source = isStaff && search.trim()
+      ? myReturns.filter((r) =>
+          r.userName.toLowerCase().includes(search.trim().toLowerCase()) ||
+          r.userPhone.includes(search.trim()) ||
+          r.orderId.toLowerCase().startsWith(search.trim().toLowerCase())
+        )
+      : myReturns;
+    return [...source].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [filter, isStaff, search, myReturns]);
 
   const canCancelOrder = (order: Order) => {
     if (order.status === "scheduled") return true;
@@ -131,6 +133,216 @@ export default function OrdersScreen() {
     { key: "settled", label: t("returnStep3") },
   ];
 
+  const activeReturnOrderIds = useMemo(
+    () => new Set(myReturns.filter((ret) => ret.status !== "cancelled").map((ret) => ret.orderId)),
+    [myReturns],
+  );
+
+  const renderEmpty = () => (
+    <View style={styles.empty}>
+      <View style={[styles.emptyIcon, { backgroundColor: filter === "returns" ? "#C0392B11" : colors.gold + "11" }]}>
+        <Icon name={filter === "returns" ? "rotate-ccw" : "package"} size={32} color={filter === "returns" ? "#C0392B44" : colors.gold + "44"} />
+      </View>
+      <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+        {filter === "returns"
+          ? t("noReturns")
+          : search.trim()
+            ? t("noMatchingOrders")
+            : isStaff
+              ? t("noOrders")
+              : t("noOrdersYet")}
+      </Text>
+      {!isStaff && filter !== "returns" && !search.trim() && (
+        <Pressable
+          onPress={() => router.push("/(tabs)/products")}
+          style={({ pressed }) => [
+            styles.shopBtn,
+            { backgroundColor: colors.gold, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 },
+          ]}
+        >
+          <Icon name="shopping-bag" size={16} color={colors.background} />
+          <Text style={[styles.shopBtnText, { color: colors.background, fontFamily: "Inter_600SemiBold" }]}>
+            {t("browseProducts")}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+
+  const renderReturnCard = (ret: ReturnRequest) => {
+    const isCancelled = ret.status === "cancelled";
+    const returnStep = isCancelled ? -1 : RETURN_STEPS.findIndex((s) => s.key === ret.status);
+    return (
+      <Pressable
+        onPress={() => router.push(`/return/${ret.id}`)}
+        style={({ pressed }) => [
+          styles.returnCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: isCancelled ? "#E74C3C33" : "#C0392B33",
+            borderRadius: colors.radius,
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}
+      >
+        <View style={styles.returnCardHeader}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10, flex: 1 }}>
+            <View style={[styles.returnIcon, { backgroundColor: isCancelled ? "#E74C3C22" : "#C0392B22" }]}>
+              <Icon name={isCancelled ? "x-circle" : "rotate-ccw"} size={16} color={isCancelled ? "#E74C3C" : "#C0392B"} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
+                {t("returnRequestLabel")}
+              </Text>
+              {isStaff && (
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
+                  {ret.userName} — {ret.userPhone}
+                </Text>
+              )}
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+                {t("orderNum")} #{ret.orderId.slice(0, 12)}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.returnStatusBadge, {
+            backgroundColor: isCancelled ? "#E74C3C22" : ret.status === "settled" ? "#27AE6022" : ret.status === "returned" ? "#F39C1222" : "#C0392B22",
+          }]}>
+            <Text style={{
+              color: isCancelled ? "#E74C3C" : ret.status === "settled" ? "#27AE60" : ret.status === "returned" ? "#F39C12" : "#C0392B",
+              fontFamily: "Inter_600SemiBold", fontSize: 10,
+            }}>
+              {isCancelled ? t("cancelled") : ret.status === "settled" ? t("settled") : ret.status === "returned" ? t("returned") : t("pendingReview")}
+            </Text>
+          </View>
+        </View>
+
+        {!isCancelled && (
+          <View style={{ flexDirection: "row-reverse", alignItems: "flex-start", paddingHorizontal: 4, marginTop: 8 }}>
+            {RETURN_STEPS.map((step, index) => {
+              const isCompleted = index <= returnStep;
+              const sColor = isCompleted ? "#C0392B" : colors.border;
+              return (
+                <React.Fragment key={step.key}>
+                  <View style={{ alignItems: "center", gap: 3, flex: 1 }}>
+                    <View style={{
+                      width: 18, height: 18, borderRadius: 9, borderWidth: 2,
+                      backgroundColor: isCompleted ? sColor : colors.surface,
+                      borderColor: sColor,
+                      alignItems: "center", justifyContent: "center",
+                    }}>
+                      {isCompleted && <Icon name="check" size={8} color="#fff" />}
+                    </View>
+                    <Text style={{
+                      fontSize: 9, textAlign: "center", lineHeight: 12,
+                      color: isCompleted ? "#C0392B" : colors.mutedForeground,
+                      fontFamily: isCompleted ? "Inter_600SemiBold" : "Inter_400Regular",
+                    }} numberOfLines={2}>
+                      {step.label}
+                    </Text>
+                  </View>
+                  {index < RETURN_STEPS.length - 1 && (
+                    <View style={{ height: 2, flex: 1, marginTop: 8, marginHorizontal: -2, backgroundColor: index < returnStep ? "#C0392B" : colors.border }} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </View>
+        )}
+
+        {isCancelled && (
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 6, backgroundColor: "#E74C3C11", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+            <Icon name="info" size={12} color="#E74C3C" />
+            <Text style={{ color: "#E74C3C", fontFamily: "Inter_400Regular", fontSize: 11, flex: 1, textAlign: "right" }}>
+              {t("returnCancelled")}
+            </Text>
+          </View>
+        )}
+
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", marginTop: 6 }}>
+          {t("reason")}: {ret.reason}
+        </Text>
+
+        {ret.items && ret.items.length > 0 && (
+          <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+            {ret.items.slice(0, 4).map((item, idx) => (
+              <View key={idx} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: item.colorHex, borderWidth: 1, borderColor: colors.border }} />
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                  {item.colorName}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+            {new Date(ret.createdAt).toLocaleDateString("ar-EG")}
+          </Text>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+            <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 11 }}>{t("details")}</Text>
+            <Icon name="chevron-left" size={12} color={colors.gold} />
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
+
+  const renderOrderCard = (order: Order) => {
+    const userCanControlThisOrder =
+      user?.role === "admin"
+      || (canEditStatus && (!order.assignedTo || order.assignedTo === user?.id));
+
+    return (
+      <View>
+        <OrderCard
+          order={order}
+          isAdmin={canEditStatus}
+          canControl={userCanControlThisOrder}
+          hasReturn={activeReturnOrderIds.has(order.id)}
+          onPress={() => router.push(`/order/${order.id}`)}
+          onStatusChange={
+            canEditStatus && order.status !== "cancelled" && userCanControlThisOrder
+              ? (status: OrderStatus) => {
+                  if (status === "received" && user?.role !== "admin") {
+                    updateOrderStatus(order.id, status, user?.id, user?.name);
+                  } else {
+                    updateOrderStatus(order.id, status);
+                  }
+                }
+              : undefined
+          }
+          onPrevStatus={
+            user?.role === "admin" && order.status !== "cancelled" && userCanControlThisOrder
+              ? (status: OrderStatus) => updateOrderStatus(order.id, status)
+              : undefined
+          }
+        />
+        {canDeleteOrders && (
+          <Pressable
+            onPress={() =>
+              Alert.alert("حذف نهائي", "هل تريد حذف هذا الطلب نهائياً؟", [
+                { text: "إلغاء", style: "cancel" },
+                { text: "حذف", style: "destructive", onPress: () => deleteOrder(order.id) },
+              ])
+            }
+            style={[
+              styles.deleteOrderBtn,
+              { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11" },
+            ]}
+          >
+            <Icon name="trash-2" size={14} color="#E74C3C" />
+            <Text style={[{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 13 }]}>
+              حذف الطلب نهائياً
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  };
+
+  const listData: Array<Order | ReturnRequest> = filter === "returns" ? filteredReturns : filtered;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}>
@@ -163,11 +375,7 @@ export default function OrdersScreen() {
         )}
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={{ flex: 1 }}>
       {user?.role === "admin" && myOrders.length > 0 && (
         <View style={[styles.statsRow, { borderBottomColor: colors.border }]}>
           <View style={[styles.statBox, { backgroundColor: "#9B59B611", borderColor: "#9B59B633" }]}>
@@ -267,217 +475,27 @@ export default function OrdersScreen() {
       </View>
       )}
 
-      <View style={styles.list}>
-        {filter === "returns" ? (
-          filteredReturns.length === 0 ? (
-            <View style={styles.empty}>
-              <View style={[styles.emptyIcon, { backgroundColor: "#C0392B11" }]}>
-                <Icon name="rotate-ccw" size={32} color="#C0392B44" />
-              </View>
-              <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-                {t("noReturns")}
-              </Text>
-            </View>
-          ) : (
-            [...filteredReturns].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((ret) => {
-              const isCancelled = ret.status === "cancelled";
-              const returnStep = isCancelled ? -1 : RETURN_STEPS.findIndex((s) => s.key === ret.status);
-              return (
-                <Pressable
-                  key={ret.id}
-                  onPress={() => router.push(`/return/${ret.id}`)}
-                  style={({ pressed }) => [
-                    styles.returnCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: isCancelled ? "#E74C3C33" : "#C0392B33",
-                      borderRadius: colors.radius,
-                      opacity: pressed ? 0.85 : 1,
-                    },
-                  ]}
-                >
-                  <View style={styles.returnCardHeader}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10, flex: 1 }}>
-                      <View style={[styles.returnIcon, { backgroundColor: isCancelled ? "#E74C3C22" : "#C0392B22" }]}>
-                        <Icon name={isCancelled ? "x-circle" : "rotate-ccw"} size={16} color={isCancelled ? "#E74C3C" : "#C0392B"} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
-                          {t("returnRequestLabel")}
-                        </Text>
-                        {isStaff && (
-                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
-                            {ret.userName} — {ret.userPhone}
-                          </Text>
-                        )}
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
-                          {t("orderNum")} #{ret.orderId.slice(0, 12)}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={[styles.returnStatusBadge, {
-                      backgroundColor: isCancelled ? "#E74C3C22" : ret.status === "settled" ? "#27AE6022" : ret.status === "returned" ? "#F39C1222" : "#C0392B22",
-                    }]}>
-                      <Text style={{
-                        color: isCancelled ? "#E74C3C" : ret.status === "settled" ? "#27AE60" : ret.status === "returned" ? "#F39C12" : "#C0392B",
-                        fontFamily: "Inter_600SemiBold", fontSize: 10,
-                      }}>
-                        {isCancelled ? t("cancelled") : ret.status === "settled" ? t("settled") : ret.status === "returned" ? t("returned") : t("pendingReview")}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {!isCancelled && (
-                    <View style={{ flexDirection: "row-reverse", alignItems: "flex-start", paddingHorizontal: 4, marginTop: 8 }}>
-                      {RETURN_STEPS.map((step, index) => {
-                        const isCompleted = index <= returnStep;
-                        const sColor = isCompleted ? "#C0392B" : colors.border;
-                        return (
-                          <React.Fragment key={step.key}>
-                            <View style={{ alignItems: "center", gap: 3, flex: 1 }}>
-                              <View style={{
-                                width: 18, height: 18, borderRadius: 9, borderWidth: 2,
-                                backgroundColor: isCompleted ? sColor : colors.surface,
-                                borderColor: sColor,
-                                alignItems: "center", justifyContent: "center",
-                              }}>
-                                {isCompleted && <Icon name="check" size={8} color="#fff" />}
-                              </View>
-                              <Text style={{
-                                fontSize: 9, textAlign: "center", lineHeight: 12,
-                                color: isCompleted ? "#C0392B" : colors.mutedForeground,
-                                fontFamily: isCompleted ? "Inter_600SemiBold" : "Inter_400Regular",
-                              }} numberOfLines={2}>
-                                {step.label}
-                              </Text>
-                            </View>
-                            {index < RETURN_STEPS.length - 1 && (
-                              <View style={{ height: 2, flex: 1, marginTop: 8, marginHorizontal: -2, backgroundColor: index < returnStep ? "#C0392B" : colors.border }} />
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </View>
-                  )}
-
-                  {isCancelled && (
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 6, backgroundColor: "#E74C3C11", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
-                      <Icon name="info" size={12} color="#E74C3C" />
-                      <Text style={{ color: "#E74C3C", fontFamily: "Inter_400Regular", fontSize: 11, flex: 1, textAlign: "right" }}>
-                        {t("returnCancelled")}
-                      </Text>
-                    </View>
-                  )}
-
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", marginTop: 6 }}>
-                    {t("reason")}: {ret.reason}
-                  </Text>
-
-                  {ret.items && ret.items.length > 0 && (
-                    <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                      {ret.items.slice(0, 4).map((item, idx) => (
-                        <View key={idx} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: item.colorHex, borderWidth: 1, borderColor: colors.border }} />
-                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
-                            {item.colorName}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
-                      {new Date(ret.createdAt).toLocaleDateString("ar-EG")}
-                    </Text>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                      <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 11 }}>{t("details")}</Text>
-                      <Icon name="chevron-left" size={12} color={colors.gold} />
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            })
-          )
-        ) : filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <View style={[styles.emptyIcon, { backgroundColor: colors.gold + "11" }]}>
-              <Icon name="package" size={32} color={colors.gold + "44"} />
-            </View>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-              {search.trim() ? t("noMatchingOrders") : isStaff ? t("noOrders") : t("noOrdersYet")}
-            </Text>
-            {!isStaff && !search.trim() && (
-              <Pressable
-                onPress={() => router.push("/(tabs)/products")}
-                style={({ pressed }) => [
-                  styles.shopBtn,
-                  { backgroundColor: colors.gold, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 },
-                ]}
-              >
-                <Icon name="shopping-bag" size={16} color={colors.background} />
-                <Text style={[styles.shopBtnText, { color: colors.background, fontFamily: "Inter_600SemiBold" }]}>
-                  {t("browseProducts")}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        ) : (
-          filtered.map((order) => {
-            const userCanControlThisOrder =
-              user?.role === "admin"
-              || (canEditStatus && (!order.assignedTo || order.assignedTo === user?.id));
-
-            return (
-            <View key={order.id}>
-              <OrderCard
-                order={order}
-                isAdmin={canEditStatus}
-                canControl={userCanControlThisOrder}
-                hasReturn={returnRequests.some((r) => r.orderId === order.id && r.status !== "cancelled")}
-                onPress={() => router.push(`/order/${order.id}`)}
-                onStatusChange={
-                  canEditStatus && order.status !== "cancelled" && userCanControlThisOrder
-                    ? (status: OrderStatus) => {
-                        if (status === "received" && user?.role !== "admin") {
-                          updateOrderStatus(order.id, status, user?.id, user?.name);
-                        } else {
-                          updateOrderStatus(order.id, status);
-                        }
-                      }
-                    : undefined
-                }
-                onPrevStatus={
-                  user?.role === "admin" && order.status !== "cancelled" && userCanControlThisOrder
-                    ? (status: OrderStatus) => updateOrderStatus(order.id, status)
-                    : undefined
-                }
-              />
-              {canDeleteOrders && (
-                <Pressable
-                  onPress={() =>
-                    Alert.alert("حذف نهائي", "هل تريد حذف هذا الطلب نهائياً؟", [
-                      { text: "إلغاء", style: "cancel" },
-                      { text: "حذف", style: "destructive", onPress: () => deleteOrder(order.id) },
-                    ])
-                  }
-                  style={[
-                    styles.deleteOrderBtn,
-                    { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11" },
-                  ]}
-                >
-                  <Icon name="trash-2" size={14} color="#E74C3C" />
-                  <Text style={[{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 13 }]}>
-                    حذف الطلب نهائياً
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-            );
-          })
-        )}
+       <FlatList
+         data={listData}
+         keyExtractor={(item) => item.id}
+         renderItem={({ item }) => (
+           <View style={styles.listItem}>
+             {filter === "returns"
+               ? renderReturnCard(item as ReturnRequest)
+               : renderOrderCard(item as Order)}
+           </View>
+         )}
+         ListEmptyComponent={renderEmpty}
+         contentContainerStyle={[styles.listContent, { paddingBottom: bottomPad + 100 }]}
+         showsVerticalScrollIndicator={false}
+         keyboardShouldPersistTaps="handled"
+         initialNumToRender={8}
+         maxToRenderPerBatch={6}
+         windowSize={7}
+         updateCellsBatchingPeriod={50}
+         removeClippedSubviews={Platform.OS !== "web"}
+       />
       </View>
-      </ScrollView>
     </View>
   );
 }
@@ -555,6 +573,8 @@ const styles = StyleSheet.create({
     position: "relative" as const,
   },
   list: { padding: 16, gap: 4 },
+  listItem: { paddingHorizontal: 16, paddingTop: 4 },
+  listContent: { flexGrow: 1 },
   empty: { alignItems: "center" as const, paddingTop: 80, gap: 16 },
   emptyIcon: {
     width: 72,

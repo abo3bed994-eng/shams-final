@@ -6,6 +6,7 @@
 
 import { Platform } from "react-native";
 import { FS } from "@/lib/firebase";
+import { migrateLocalToE164 } from "@/lib/phoneUtils";
 
 let _Notifications: typeof import("expo-notifications") | null = null;
 let _Device: typeof import("expo-device") | null = null;
@@ -113,7 +114,10 @@ export async function registerForPushNotifications(
     }
 
     if (expoPushToken) {
-      await FS.savePushToken(phone, role, expoPushToken);
+      // Push-token documents are keyed by phone. Keep the key canonical so
+      // status notifications can find the token even when an old order stores
+      // the customer's local-format phone.
+      await FS.savePushToken(migrateLocalToE164(phone), role, expoPushToken);
     }
     return expoPushToken;
   } catch (err) {
@@ -196,7 +200,12 @@ export async function notifyUserByPhone(
   data?: Record<string, any>
 ): Promise<void> {
   try {
-    const token = await FS.getPushTokenByPhone(phone);
+    const normalizedPhone = migrateLocalToE164(phone);
+    // Prefer the canonical key, but keep the raw key as a compatibility
+    // fallback for tokens saved by older app versions.
+    const token =
+      await FS.getPushTokenByPhone(normalizedPhone) ||
+      (normalizedPhone !== phone ? await FS.getPushTokenByPhone(phone) : null);
     if (token) await sendExpoPush([token], title, body, data, "messages");
   } catch (err) {
     console.warn("notifyUserByPhone error:", err);

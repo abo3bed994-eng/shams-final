@@ -1,4 +1,5 @@
 import type { User, Notification } from "@/context/AppContext";
+import { migrateLocalToE164 } from "@/lib/phoneUtils";
 
 // Captured once at module load — used as a stable fallback "registered at"
 // cutoff for legacy accounts that never had registeredAt persisted.
@@ -15,6 +16,7 @@ export function filterNotificationsForUser(notifications: Notification[], user: 
   // the cutoff doesn't drift on every render and silently hide brand-new
   // broadcasts that arrive during the session.
   const registeredAt = user.registeredAt || SESSION_START_ISO;
+  const userPhone = migrateLocalToE164(user.phone);
 
   return notifications.filter((n) => {
     if (n.sourceUserId && n.sourceUserId === user.id) return false;
@@ -28,7 +30,7 @@ export function filterNotificationsForUser(notifications: Notification[], user: 
     const isDirect = !!(n.targetUserId || n.targetUserPhone);
     const directMatchesMe =
       (!!n.targetUserId && n.targetUserId === user.id) ||
-      (!!n.targetUserPhone && n.targetUserPhone === user.phone);
+      (!!n.targetUserPhone && n.targetUserPhone === userPhone);
 
     // Hide broadcasts (not directed at a specific user) that predate the user's
     // registration, but always allow direct-targeted notifications.

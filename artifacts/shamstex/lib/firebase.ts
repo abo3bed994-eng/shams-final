@@ -25,7 +25,7 @@ import {
   type Unsubscribe,
 } from "./fb";
 import { RecaptchaVerifier, type ConfirmationResult } from "@firebase/auth";
-import { canonicalPhone } from "./phoneUtils";
+import { canonicalPhone, migrateLocalToE164 } from "./phoneUtils";
 
 // Re-export the platform-resolved instances so existing importers keep working
 // (phoneAuth.ts → auth, utils/persistImage.ts → storage).
@@ -380,6 +380,7 @@ export const FS = {
       return FS.subscribeNotifications(callback);
     }
     const merged = new Map<string, any>();
+    const notificationPhone = migrateLocalToE164(userPhone);
     const emit = () => {
       const arr = [...merged.values()].sort((a, b) =>
         (b.createdAt || "").localeCompare(a.createdAt || "")
@@ -390,7 +391,7 @@ export const FS = {
     // that authorize via auth.token.phone_number). Notifications without
     // targetUserPhone (legacy) won't be visible to non-staff users.
     const subTargeted = onSnapshot(
-      query(collection(db, "notifications"), where("targetUserPhone", "==", userPhone), limit(100)),
+      query(collection(db, "notifications"), where("targetUserPhone", "==", notificationPhone), limit(100)),
       (snap) => {
         // Remove any previously stored docs from this listener that no longer match,
         // then add/update fresh ones.

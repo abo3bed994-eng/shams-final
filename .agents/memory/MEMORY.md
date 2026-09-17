@@ -28,3 +28,4 @@
 - [Expo static build port](expo-static-build-port.md) — static Expo build assumes Metro on 8081; stop the Canvas workflow first when it owns that port.
 - [Shams Tex presence auth keys](shamstex-presence-session-keys.md) — presence uses Firebase UID for deployed-rule compatibility; never delete on cleanup because a new phone may own the same record.
 - [Shams Tex OTP throttle](shamstex-otp-throttle.md) — check limits without incrementing; record only Firebase-accepted sends, with the client limit aligned to Firestore's cap.
+- [Shams Tex GitHub sync](shamstex-github-sync.md) — GitHub main and local main have independent histories; sync trees safely and never force-push over GitHub.

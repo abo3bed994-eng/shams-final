@@ -130,6 +130,7 @@ function RootLayoutNav() {
         <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="order/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="cart" options={{ headerShown: false }} />
+        <Stack.Screen name="price-menu" options={{ headerShown: false }} />
         <Stack.Screen name="favorites" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
@@ -147,6 +148,7 @@ function RootLayoutNav() {
         <Stack.Screen name="admin/settings/contacts" options={{ headerShown: false }} />
         <Stack.Screen name="admin/settings/socials" options={{ headerShown: false }} />
         <Stack.Screen name="admin/settings/ads" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/price-menu" options={{ headerShown: false }} />
         <Stack.Screen name="admin/settings/categories" options={{ headerShown: false }} />
         <Stack.Screen name="admin/settings/companion-materials" options={{ headerShown: false }} />
         <Stack.Screen name="admin/settings/hours" options={{ headerShown: false }} />

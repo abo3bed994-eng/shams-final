@@ -59,6 +59,7 @@ const PERMISSION_LABELS: Record<EmployeePermission, string> = {
   manage_settings: "إدارة الإعدادات",
   manage_payments: "تفعيل/تعطيل وسائل الدفع",
   toggle_price_view: "التبديل بين أسعار التجار/العملاء",
+  view_price_menu: "عرض قائمة الأسعار",
   revert_final: "التراجع عن الشحن/التسليم",
 };
 
@@ -77,6 +78,7 @@ const EMPLOYEE_PERMISSIONS: EmployeePermission[] = [
 // payment-method control without being promoted to supervisor.
 const EMPLOYEE_GRANTABLE: EmployeePermission[] = [
   ...EMPLOYEE_PERMISSIONS,
+  "view_price_menu",
   "delete_orders",
   "approve_upgrades",
   "manage_payments",
@@ -97,6 +99,7 @@ const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
   "manage_settings",
   "manage_payments",
   "toggle_price_view",
+  "view_price_menu",
 ];
 
 const SUPERVISOR_GRANTABLE: EmployeePermission[] = [

@@ -27,7 +27,7 @@ import { filterNotificationsForUser } from "@/lib/notificationFilter";
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, products, notifications, cart, settings, orders, onlineCount, favorites } = useApp();
+  const { user, products, notifications, cart, settings, orders, onlineCount, favorites, canViewPriceMenu } = useApp();
   const { t, isRTL } = useTranslation();
 
   const videos = settings.bannerVideoUris ?? [];
@@ -120,12 +120,26 @@ export default function HomeScreen() {
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const navGuard = useRef(false);
+  const homeBottomArmed = useRef(false);
   const safePush = useCallback((path: string) => {
     if (navGuard.current) return;
     navGuard.current = true;
     router.push(path as any);
     setTimeout(() => { navGuard.current = false; }, 800);
   }, []);
+
+  const handleScrollEndDrag = useCallback((event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const atBottom = contentSize.height > layoutMeasurement.height && contentOffset.y + layoutMeasurement.height >= contentSize.height - 24;
+    if (atBottom) homeBottomArmed.current = true;
+  }, []);
+
+  const handleScrollBeginDrag = useCallback(() => {
+    if (homeBottomArmed.current) {
+      homeBottomArmed.current = false;
+      safePush("/(tabs)/products");
+    }
+  }, [safePush]);
 
   const { isNotifReadForUser } = useApp();
   const myNotifications = useMemo(
@@ -236,6 +250,16 @@ export default function HomeScreen() {
               </View>
             )}
           </Pressable>
+          {canViewPriceMenu && (
+            <Pressable
+              onPress={() => safePush("/price-menu")}
+              testID="home-price-menu"
+              accessibilityLabel="قائمة الأسعار"
+              style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
+            >
+              <Icon name="file-text" size={21} color={colors.gold} />
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.headerCenter}>
@@ -262,6 +286,9 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 100 }]}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onScrollEndDrag={handleScrollEndDrag}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -414,7 +441,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Pressable onPress={() => router.push("/(tabs)/products")}>
-              <Text style={[styles.seeAll, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+              <Text style={[styles.seeAll, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
                 {t("viewAll")}
               </Text>
             </Pressable>
@@ -616,6 +643,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sectionTitle: { fontSize: 20, letterSpacing: 0.2 },
-  seeAll: { fontSize: 12.5 },
+  seeAll: { fontSize: 15 },
   emptyText: { textAlign: "center", fontSize: 14, paddingVertical: 20 },
 });

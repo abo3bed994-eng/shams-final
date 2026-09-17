@@ -25,6 +25,7 @@ export type EmployeePermission =
   | "manage_settings"
   | "manage_payments"
   | "toggle_price_view"
+  | "view_price_menu"
   | "revert_final";
 
 export interface SavedAddress {
@@ -125,6 +126,9 @@ export interface Product {
   // Minimum quantity for weight/length orders. Old products use the unit
   // defaults (20 kg or 100 m) when this field is absent.
   minimumOrderQuantity?: number;
+  // Manual price-menu markers controlled by the administrator.
+  priceTrend?: "up" | "down";
+  priceMenuNew?: boolean;
 }
 
 export interface CartItem {
@@ -368,6 +372,15 @@ export interface AppSettings {
   stealthIconEnabled?: boolean;
   suspendOrdersOutsideHours?: boolean;
   notificationTemplates?: { id: string; title: string; body: string }[];
+  priceMenu?: PriceMenuSettings;
+}
+
+export interface PriceMenuSettings {
+  backgroundImageUri?: string;
+  backgroundOpacity: number;
+  categories: string[];
+  productOrder: string[];
+  productCategories: Record<string, string>;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -425,6 +438,12 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: "tmpl_update", title: "تحديث مهم", body: "يرجى مراجعة طلباتكم الحالية للاطلاع على آخر التحديثات." },
     { id: "tmpl_maint", title: "صيانة مجدولة", body: "سيتم إجراء صيانة مجدولة على النظام. نعتذر عن أي إزعاج." },
   ],
+  priceMenu: {
+    backgroundOpacity: 0.12,
+    categories: [],
+    productOrder: [],
+    productCategories: {},
+  },
   globalColors: [
     { name: "أبيض", hex: "#FFFFFF", quantity: 50 },
     { name: "أسود", hex: "#0A0A0A", quantity: 50 },
@@ -517,6 +536,7 @@ interface AppContextType {
   setPricingView: (mode: "auto" | "wholesale" | "retail") => Promise<void>;
   effectivePriceMode: "wholesale" | "retail";
   canTogglePricing: boolean;
+  canViewPriceMenu: boolean;
   isNotifReadForUser: (n: Notification) => boolean;
 }
 
@@ -2789,6 +2809,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return false;
   }, [user?.role, user?.permissions]);
 
+  const canViewPriceMenu = useMemo(() => {
+    if (!user) return false;
+    if (user.role === "merchant" || user.role === "admin") return true;
+    return (
+      (user.role === "employee" || user.role === "supervisor") &&
+      (user.permissions ?? []).includes("view_price_menu")
+    );
+  }, [user?.role, user?.permissions]);
+
   const effectivePriceMode: "wholesale" | "retail" = useMemo(() => {
     if (!user) return "retail";
     if (user.role === "customer") return "retail";
@@ -2881,6 +2910,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setPricingView,
         effectivePriceMode,
         canTogglePricing,
+        canViewPriceMenu,
         isNotifReadForUser,
       }}
     >

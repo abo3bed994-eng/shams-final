@@ -397,87 +397,86 @@ export default function OrdersScreen() {
         </View>
       )}
 
-      {isStaff && (
-        <View style={[styles.searchRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
-          <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 2 }]}>
-            <Icon name="search" size={16} color={colors.mutedForeground} />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder={t("searchOrders")}
-              placeholderTextColor={colors.mutedForeground}
-              style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular", textAlign: "right" }]}
-              returnKeyType="search"
-            />
-            {search.length > 0 && (
-              <Pressable onPress={() => setSearch("")} hitSlop={8}>
-                <Icon name="x" size={15} color={colors.mutedForeground} />
-              </Pressable>
-            )}
-          </View>
-        </View>
-      )}
-
-      {isStaff && (
-      <View style={[styles.filterGrid, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
-        {FILTERS.map(({ key, label, count }) => {
-          const isReturns = key === "returns";
-          const isActive = filter === key;
-          const activeColor = isReturns ? "#C0392B" : colors.gold;
-          const hasCount = (count ?? 0) > 0;
-          return (
-            <Pressable
-              key={key}
-              onPress={() => setFilter(key)}
-              style={[
-                styles.filterChip,
-                {
-                  backgroundColor: isActive ? activeColor + "18" : colors.surface,
-                  borderColor: isActive ? activeColor : colors.border,
-                  borderWidth: isActive ? 1.5 : 1,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  color: isActive ? activeColor : colors.mutedForeground,
-                  fontFamily: isActive ? "Inter_600SemiBold" : "Inter_400Regular",
-                  fontSize: 11,
-                }}
-                numberOfLines={1}
-              >
-                {label}
-              </Text>
-              {hasCount && (
-                <View style={{
-                  backgroundColor: isActive ? activeColor + "33" : colors.border + "88",
-                  width: 18,
-                  height: 18,
-                  borderRadius: 9,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}>
-                  <Text style={{
-                    color: isActive ? activeColor : colors.mutedForeground,
-                    fontFamily: "Inter_700Bold",
-                    fontSize: 9,
-                  }}>
-                    {count}
-                  </Text>
-                </View>
-              )}
-              {isReturns && pendingReturnsCount > 0 && !isActive && (
-                <View style={{ backgroundColor: "#C0392B", width: 5, height: 5, borderRadius: 3, position: "absolute", top: 2, left: 2 }} />
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
-      )}
-
        <FlatList
          data={listData}
          keyExtractor={(item) => item.id}
+          ListHeaderComponent={isStaff ? (
+            <View>
+              <View style={[styles.searchRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
+                <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 2 }]}>
+                  <Icon name="search" size={16} color={colors.mutedForeground} />
+                  <TextInput
+                    value={search}
+                    onChangeText={setSearch}
+                    placeholder={t("searchOrders")}
+                    placeholderTextColor={colors.mutedForeground}
+                    style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular", textAlign: "right" }]}
+                    returnKeyType="search"
+                  />
+                  {search.length > 0 && (
+                    <Pressable onPress={() => setSearch("")} hitSlop={8}>
+                      <Icon name="x" size={15} color={colors.mutedForeground} />
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+
+              <View style={[styles.filterGrid, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
+                {FILTERS.map(({ key, label, count }) => {
+                  const isReturns = key === "returns";
+                  const isActive = filter === key;
+                  const activeColor = isReturns ? "#C0392B" : colors.gold;
+                  const hasCount = (count ?? 0) > 0;
+                  return (
+                    <Pressable
+                      key={key}
+                      onPress={() => setFilter(key)}
+                      style={[
+                        styles.filterChip,
+                        {
+                          backgroundColor: isActive ? activeColor + "18" : colors.surface,
+                          borderColor: isActive ? activeColor : colors.border,
+                          borderWidth: isActive ? 1.5 : 1,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          color: isActive ? activeColor : colors.mutedForeground,
+                          fontFamily: isActive ? "Inter_600SemiBold" : "Inter_400Regular",
+                          fontSize: 11,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {label}
+                      </Text>
+                      {hasCount && (
+                        <View style={{
+                          backgroundColor: isActive ? activeColor + "33" : colors.border + "88",
+                          width: 18,
+                          height: 18,
+                          borderRadius: 9,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}>
+                          <Text style={{
+                            color: isActive ? activeColor : colors.mutedForeground,
+                            fontFamily: "Inter_700Bold",
+                            fontSize: 9,
+                          }}>
+                            {count}
+                          </Text>
+                        </View>
+                      )}
+                      {isReturns && pendingReturnsCount > 0 && !isActive && (
+                        <View style={{ backgroundColor: "#C0392B", width: 5, height: 5, borderRadius: 3, position: "absolute", top: 2, left: 2 }} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
          renderItem={({ item }) => (
            <View style={styles.listItem}>
              {filter === "returns"

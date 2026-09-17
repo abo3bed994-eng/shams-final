@@ -21,8 +21,6 @@ import { useTranslation } from "@/lib/i18n";
 import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/context/AppContext";
 
-const OUT_OF_STOCK_LABEL = "غير متوفر";
-
 export default function ProductsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -41,20 +39,16 @@ export default function ProductsScreen() {
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const subcategoriesForActive: string[] = useMemo(
-    () => activeCategory !== "الكل" && activeCategory !== OUT_OF_STOCK_LABEL
+    () => activeCategory !== "الكل"
       ? (settings.subcategories ?? {})[activeCategory] ?? []
       : [],
     [activeCategory, settings.subcategories]
   );
 
   const filtered = useMemo(() => products.filter((p) => {
-      if (activeCategory === OUT_OF_STOCK_LABEL) {
-        if (p.inStock) return false;
-      } else {
-        const matchCategory = activeCategory === "الكل" || p.category === activeCategory;
-        if (!matchCategory) return false;
-        if (activeSubcategory && p.subcategory !== activeSubcategory) return false;
-      }
+      const matchCategory = activeCategory === "الكل" || p.category === activeCategory;
+      if (!matchCategory) return false;
+      if (activeSubcategory && p.subcategory !== activeSubcategory) return false;
       const matchSearch = !search || p.name.includes(search) || p.category.includes(search);
       return matchSearch;
     }), [products, activeCategory, activeSubcategory, search]);
@@ -142,173 +136,164 @@ export default function ProductsScreen() {
         </View>
       </View>
 
-      <View
-        style={[
-          styles.searchWrapper,
-          {
-            backgroundColor: colors.surface,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
-        {canTogglePricing && (
-          <View style={{ flexDirection: "row-reverse", gap: 6, paddingHorizontal: 16, paddingTop: 10, alignItems: "center" }}>
-            <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_500Medium" }}>
-              عرض الأسعار:
-            </Text>
-            {([
-              { v: "wholesale", l: "تجار" },
-              { v: "retail", l: "عملاء" },
-            ] as const).map((opt) => {
-              const active = effectivePriceMode === opt.v;
-              return (
-                <Pressable
-                  key={opt.v}
-                  onPress={() => setPricingView(opt.v)}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 5,
-                    borderRadius: 14,
-                    borderWidth: 1,
-                    backgroundColor: active ? colors.gold + "33" : "transparent",
-                    borderColor: active ? colors.gold : colors.border,
-                  }}
-                >
-                  <Text style={{
-                    color: active ? colors.gold : colors.mutedForeground,
-                    fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular",
-                    fontSize: 12,
-                  }}>
-                    {opt.l}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-        <View
-          style={[
-            styles.searchBar,
-            {
-              backgroundColor: colors.input,
-              borderColor: colors.border,
-              borderRadius: colors.radius,
-            },
-          ]}
-        >
-          <Icon name="search" size={18} color={colors.mutedForeground} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
-            placeholder={t("searchProducts")}
-            placeholderTextColor={colors.mutedForeground}
-            value={search}
-            onChangeText={setSearch}
-            textAlign="right"
-          />
-        </View>
-
-        <ScrollView
-          ref={catScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catScroll}
-          onContentSizeChange={() => catScrollRef.current?.scrollToEnd({ animated: false })}
-        >
-          {[...CATEGORIES, OUT_OF_STOCK_LABEL].reverse().map((cat) => (
-            <Pressable
-              key={cat}
-              onPress={() => handleCategoryPress(cat)}
-              style={({ pressed }) => [
-                styles.catChip,
-                {
-                  backgroundColor:
-                    activeCategory === cat
-                      ? cat === OUT_OF_STOCK_LABEL
-                        ? "#E74C3C"
-                        : colors.gold
-                      : colors.surface,
-                  borderColor:
-                    activeCategory === cat
-                      ? cat === OUT_OF_STOCK_LABEL
-                        ? "#E74C3C"
-                        : colors.gold
-                      : colors.border,
-                  opacity: pressed ? 0.8 : 1,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.catText,
-                  {
-                    color:
-                      activeCategory === cat ? colors.background : colors.foreground,
-                    fontFamily:
-                      activeCategory === cat ? "Inter_600SemiBold" : "Inter_400Regular",
-                  },
-                ]}
-              >
-                {cat}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {subcategoriesForActive.length > 0 && (
-          <ScrollView
-            ref={subCatScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subCatScroll}
-            onContentSizeChange={() => subCatScrollRef.current?.scrollToEnd({ animated: false })}
-          >
-            {[...subcategoriesForActive].reverse().map((sub) => (
-              <Pressable
-                key={sub}
-                onPress={() => setActiveSubcategory(sub)}
-                style={({ pressed }) => [
-                  styles.subCatChip,
-                  {
-                    backgroundColor: activeSubcategory === sub ? colors.gold + "33" : "transparent",
-                    borderColor: activeSubcategory === sub ? colors.gold : colors.border,
-                    opacity: pressed ? 0.8 : 1,
-                  },
-                ]}
-              >
-                <Text style={[styles.subCatText, {
-                  color: activeSubcategory === sub ? colors.gold : colors.mutedForeground,
-                  fontFamily: activeSubcategory === sub ? "Inter_600SemiBold" : "Inter_400Regular",
-                }]}>
-                  {sub}
-                </Text>
-              </Pressable>
-            ))}
-            <Pressable
-              onPress={() => setActiveSubcategory(null)}
-              style={({ pressed }) => [
-                styles.subCatChip,
-                {
-                  backgroundColor: !activeSubcategory ? colors.gold + "33" : "transparent",
-                  borderColor: !activeSubcategory ? colors.gold : colors.border,
-                  opacity: pressed ? 0.8 : 1,
-                },
-              ]}
-            >
-              <Text style={[styles.subCatText, {
-                color: !activeSubcategory ? colors.gold : colors.mutedForeground,
-                fontFamily: !activeSubcategory ? "Inter_600SemiBold" : "Inter_400Regular",
-              }]}>
-                {t("allCategories")}
-              </Text>
-            </Pressable>
-          </ScrollView>
-        )}
-      </View>
-
       <FlatList
         data={filtered}
         renderItem={renderProduct}
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <View
+            style={[
+              styles.searchWrapper,
+              {
+                backgroundColor: colors.surface,
+                borderBottomColor: colors.border,
+                marginHorizontal: -16,
+                marginTop: -16,
+              },
+            ]}
+          >
+            {canTogglePricing && (
+              <View style={{ flexDirection: "row-reverse", gap: 6, paddingHorizontal: 16, paddingTop: 10, alignItems: "center" }}>
+                <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_500Medium" }}>
+                  عرض الأسعار:
+                </Text>
+                {([
+                  { v: "wholesale", l: "تجار" },
+                  { v: "retail", l: "عملاء" },
+                ] as const).map((opt) => {
+                  const active = effectivePriceMode === opt.v;
+                  return (
+                    <Pressable
+                      key={opt.v}
+                      onPress={() => setPricingView(opt.v)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 5,
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        backgroundColor: active ? colors.gold + "33" : "transparent",
+                        borderColor: active ? colors.gold : colors.border,
+                      }}
+                    >
+                      <Text style={{
+                        color: active ? colors.gold : colors.mutedForeground,
+                        fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular",
+                        fontSize: 12,
+                      }}>
+                        {opt.l}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+            <View
+              style={[
+                styles.searchBar,
+                {
+                  backgroundColor: colors.input,
+                  borderColor: colors.border,
+                  borderRadius: colors.radius,
+                },
+              ]}
+            >
+              <Icon name="search" size={18} color={colors.mutedForeground} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
+                placeholder={t("searchProducts")}
+                placeholderTextColor={colors.mutedForeground}
+                value={search}
+                onChangeText={setSearch}
+                textAlign="right"
+              />
+            </View>
+
+            <ScrollView
+              ref={catScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.catScroll}
+              onContentSizeChange={() => catScrollRef.current?.scrollToEnd({ animated: false })}
+            >
+              {[...CATEGORIES].reverse().map((cat) => (
+                <Pressable
+                  key={cat}
+                  onPress={() => handleCategoryPress(cat)}
+                  style={({ pressed }) => [
+                    styles.catChip,
+                    {
+                      backgroundColor: activeCategory === cat ? colors.gold : colors.surface,
+                      borderColor: activeCategory === cat ? colors.gold : colors.border,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.catText,
+                      {
+                        color: activeCategory === cat ? colors.background : colors.foreground,
+                        fontFamily: activeCategory === cat ? "Inter_600SemiBold" : "Inter_400Regular",
+                      },
+                    ]}
+                  >
+                    {cat}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {subcategoriesForActive.length > 0 && (
+              <ScrollView
+                ref={subCatScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.subCatScroll}
+                onContentSizeChange={() => subCatScrollRef.current?.scrollToEnd({ animated: false })}
+              >
+                {[...subcategoriesForActive].reverse().map((sub) => (
+                  <Pressable
+                    key={sub}
+                    onPress={() => setActiveSubcategory(sub)}
+                    style={({ pressed }) => [
+                      styles.subCatChip,
+                      {
+                        backgroundColor: activeSubcategory === sub ? colors.gold + "33" : "transparent",
+                        borderColor: activeSubcategory === sub ? colors.gold : colors.border,
+                        opacity: pressed ? 0.8 : 1,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.subCatText, {
+                      color: activeSubcategory === sub ? colors.gold : colors.mutedForeground,
+                      fontFamily: activeSubcategory === sub ? "Inter_600SemiBold" : "Inter_400Regular",
+                    }]}>
+                      {sub}
+                    </Text>
+                  </Pressable>
+                ))}
+                <Pressable
+                  onPress={() => setActiveSubcategory(null)}
+                  style={({ pressed }) => [
+                    styles.subCatChip,
+                    {
+                      backgroundColor: !activeSubcategory ? colors.gold + "33" : "transparent",
+                      borderColor: !activeSubcategory ? colors.gold : colors.border,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.subCatText, {
+                    color: !activeSubcategory ? colors.gold : colors.mutedForeground,
+                    fontFamily: !activeSubcategory ? "Inter_600SemiBold" : "Inter_400Regular",
+                  }]}>
+                    {t("allCategories")}
+                  </Text>
+                </Pressable>
+              </ScrollView>
+            )}
+          </View>
+        }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 100 }]}
         keyboardShouldPersistTaps="handled"

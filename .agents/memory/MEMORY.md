@@ -24,3 +24,5 @@
 - [Shams Tex order field writes](shamstex-order-field-writes.md) — customer order updates must be targeted patchOrder (rules use affectedKeys().hasOnly; full-doc saveOrder breaks on drift); private proof images never fall back to base64.
 - [Expo web font gate](shamstex-web-font-preview.md) — don't block web preview on Expo font loading; render with system fallbacks while fonts resolve.
 - [Expo token failure](expo-token-workflow.md) — an invalid EXPO_TOKEN makes Expo Metro exit before QR/Expo Go is available; replace the secret securely, then restart the workflow.
+- [EAS build metadata](eas-build-metadata.md) — diagnose APK failures by checking profile, distribution, commit, and phase; generic install errors can hide a Production/Preview mismatch.
+- [Expo static build port](expo-static-build-port.md) — static Expo build assumes Metro on 8081; stop the Canvas workflow first when it owns that port.

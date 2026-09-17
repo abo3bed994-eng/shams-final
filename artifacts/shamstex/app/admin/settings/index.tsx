@@ -13,6 +13,7 @@ const ITEMS: { key: string; title: string; icon: string; route: string }[] = [
   { key: "contacts", title: "أرقام التواصل", icon: "phone", route: "/admin/settings/contacts" },
   { key: "socials", title: "روابط التواصل الاجتماعي", icon: "globe", route: "/admin/settings/socials" },
   { key: "ads", title: "المحتوى الإعلاني", icon: "image", route: "/admin/settings/ads" },
+  { key: "price-menu", title: "قائمة أسعار التجار", icon: "file-text", route: "/admin/settings/price-menu" },
   { key: "categories", title: "فئات المنتجات والفئات الفرعية", icon: "grid", route: "/admin/settings/categories" },
   { key: "yarns", title: "أنواع الفتلة", icon: "layers", route: "/admin/settings/yarns" },
   { key: "companions", title: "الخامات المرافقة", icon: "link", route: "/admin/settings/companion-materials" },

@@ -156,7 +156,8 @@ export default function LoginScreen() {
   // ---------- Real OTP send ----------
   const sendOtp = async () => {
     setLoading(true);
-    // Rate-limit OTP requests: 5 per phone per 24 hours. Owner phones are exempt.
+    // Rate-limit successful OTP sends: 10 per phone per 24 hours. Owner phones
+    // are exempt. The read-only check does not consume an attempt.
     if (!isOwnerPhone(e164Phone)) {
       try {
         const { FS } = await import("@/lib/firebase");
@@ -176,8 +177,20 @@ export default function LoginScreen() {
       }
     }
     try {
-      const conf = await startPhoneSignIn(e164Phone);
+      const conf = await startPhoneSignIn(e164Phone, {
+        disableAppVerificationForTesting: __DEV__ && isOwnerPhone(e164Phone),
+      });
       confirmRef.current = conf;
+      if (!isOwnerPhone(e164Phone)) {
+        try {
+          const { FS } = await import("@/lib/firebase");
+          await FS.recordOtpSent(e164Phone);
+        } catch (throttleErr: any) {
+          // Firebase already accepted the OTP. A throttle-recording failure
+          // must not block the user from entering the received code.
+          console.warn("[OTP throttle] record failed:", throttleErr?.message || throttleErr);
+        }
+      }
       setStep("otp");
     } catch (e: any) {
       const code = e?.code || "";

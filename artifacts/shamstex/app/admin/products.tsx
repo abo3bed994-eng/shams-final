@@ -1,10 +1,11 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { router } from "expo-router";
@@ -31,8 +32,18 @@ export default function AdminProductsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { products, setProducts, deleteProductOne, updateProductOne } = useApp();
+  const [search, setSearch] = useState("");
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const filteredProducts = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    if (!query) return products;
+    return products.filter((product) =>
+      product.name.toLocaleLowerCase().includes(query)
+      || product.category.toLocaleLowerCase().includes(query)
+      || (product.subcategory ?? "").toLocaleLowerCase().includes(query)
+    );
+  }, [products, search]);
 
   const deleteProduct = (id: string, name: string) => {
     Alert.alert("حذف المنتج", `هل تريد حذف "${name}"؟`, [
@@ -250,6 +261,28 @@ export default function AdminProductsScreen() {
         }
       />
 
+      {products.length > 0 && (
+        <View style={[styles.searchRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <Icon name="search" size={17} color={colors.mutedForeground} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="ابحث عن خامة"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
+              textAlign="right"
+              returnKeyType="search"
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch("")} hitSlop={8}>
+                <Icon name="x" size={15} color={colors.mutedForeground} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
+
       {products.length === 0 ? (
         <View style={styles.empty}>
           <Icon name="layers" size={48} color={colors.mutedForeground} />
@@ -264,12 +297,25 @@ export default function AdminProductsScreen() {
         </View>
       ) : (
         <DraggableFlatList
-          data={products}
+          data={filteredProducts}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           onDragEnd={({ data }) => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setProducts(data);
+            if (!search.trim()) {
+              setProducts(data);
+              return;
+            }
+            const visibleIds = new Set(filteredProducts.map((item) => item.id));
+            const matchingIndexes = products.reduce<number[]>((indexes, product, index) => {
+              if (visibleIds.has(product.id)) indexes.push(index);
+              return indexes;
+            }, []);
+            const nextProducts = [...products];
+            matchingIndexes.forEach((index, itemIndex) => {
+              nextProducts[index] = data[itemIndex];
+            });
+            setProducts(nextProducts);
           }}
           onDragBegin={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)}
           contentContainerStyle={[
@@ -286,6 +332,16 @@ export default function AdminProductsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16 },
+  searchRow: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
+  searchBox: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    height: 44,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
   addBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   productCard: { borderWidth: 1, overflow: "hidden" },
   productHeader: {

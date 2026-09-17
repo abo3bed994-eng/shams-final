@@ -35,6 +35,7 @@ export default function PriceMenuSettingsScreen() {
   const { colors, bottomPad, draft, setDraft, saving, save } = useSettingsDraft();
   const [newCategory, setNewCategory] = useState("");
   const [backgroundLoading, setBackgroundLoading] = useState(false);
+  const [openCategoryProductId, setOpenCategoryProductId] = useState<string | null>(null);
   const { products } = useApp();
   const menu = getMenu(draft);
 
@@ -46,6 +47,42 @@ export default function PriceMenuSettingsScreen() {
       return aRank - bRank || a.name.localeCompare(b.name, "ar");
     });
   }, [menu.productOrder, products]);
+
+  const groupedProductSections = useMemo(() => {
+    const categoryRank = new Map(menu.categories.map((name, index) => [name, index]));
+    const grouped = new Map<string, Product[]>();
+    orderedProducts.forEach((product) => {
+      const category = menu.productCategories[product.id] || product.category || "خامات";
+      const list = grouped.get(category);
+      if (list) list.push(product);
+      else grouped.set(category, [product]);
+    });
+    return [...grouped.entries()].sort(([a], [b]) => {
+      const aRank = categoryRank.get(a) ?? Number.MAX_SAFE_INTEGER;
+      const bRank = categoryRank.get(b) ?? Number.MAX_SAFE_INTEGER;
+      return aRank - bRank || a.localeCompare(b, "ar");
+    });
+  }, [menu.categories, menu.productCategories, orderedProducts]);
+
+  const groupedProducts = useMemo(
+    () => groupedProductSections.flatMap(([, sectionProducts]) => sectionProducts),
+    [groupedProductSections],
+  );
+
+  const productGroupMeta = useMemo(() => {
+    const meta = new Map<string, { category: string; count: number; isFirst: boolean; isLast: boolean }>();
+    groupedProductSections.forEach(([category, sectionProducts]) => {
+      sectionProducts.forEach((product, index) => {
+        meta.set(product.id, {
+          category,
+          count: sectionProducts.length,
+          isFirst: index === 0,
+          isLast: index === sectionProducts.length - 1,
+        });
+      });
+    });
+    return meta;
+  }, [groupedProductSections]);
 
   const updateMenu = (patch: Partial<PriceMenuSettings>) => {
     setDraft((current) => ({
@@ -106,17 +143,41 @@ export default function PriceMenuSettingsScreen() {
         <View
           style={[
             styles.entryBox,
-            {
-              borderColor: isActive ? colors.gold : colors.border,
-              backgroundColor: isActive ? colors.gold + "11" : colors.surface,
-              marginBottom: 10,
-              shadowColor: isActive ? colors.gold : "transparent",
-              shadowOpacity: isActive ? 0.25 : 0,
-              shadowRadius: isActive ? 8 : 0,
-              elevation: isActive ? 6 : 0,
-            },
+            (() => {
+              const group = productGroupMeta.get(product.id);
+              const isFirst = group?.isFirst ?? true;
+              const isLast = group?.isLast ?? true;
+              return {
+                borderColor: isActive ? colors.gold : colors.border,
+                backgroundColor: isActive ? colors.gold + "11" : colors.surface,
+                borderTopLeftRadius: isFirst ? 10 : 0,
+                borderTopRightRadius: isFirst ? 10 : 0,
+                borderBottomLeftRadius: isLast ? 10 : 0,
+                borderBottomRightRadius: isLast ? 10 : 0,
+                borderTopWidth: isFirst ? 1 : 0,
+                borderBottomWidth: isLast ? 1 : 0,
+                marginBottom: isLast ? 10 : 0,
+                shadowColor: isActive ? colors.gold : "transparent",
+                shadowOpacity: isActive ? 0.25 : 0,
+                shadowRadius: isActive ? 8 : 0,
+                elevation: isActive ? 6 : 0,
+              };
+            })(),
           ]}
         >
+          {productGroupMeta.get(product.id)?.isFirst && (
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: colors.gold + "44" }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 7 }}>
+                <Icon name="layers" size={16} color={colors.gold} />
+                <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                  {productGroupMeta.get(product.id)?.category}
+                </Text>
+              </View>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
+                {productGroupMeta.get(product.id)?.count} خامة
+              </Text>
+            </View>
+          )}
           <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
             <Pressable
               onLongPress={drag}
@@ -148,16 +209,83 @@ export default function PriceMenuSettingsScreen() {
               </Text>
             </View>
           </View>
-          <Field
-            label="قسم القائمة"
-            value={menu.productCategories[product.id] ?? ""}
-            placeholder={product.category || "مثال: المجموعة الأولى"}
-            onChange={(value) => updateMenu({ productCategories: { ...menu.productCategories, [product.id]: value } })}
-          />
+          <View style={{ gap: 5 }}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+              قسم القائمة
+            </Text>
+            <Pressable
+              onPress={() => setOpenCategoryProductId((current) => current === product.id ? null : product.id)}
+              style={{
+                minHeight: 42,
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 12,
+                borderWidth: 1,
+                borderColor: openCategoryProductId === product.id ? colors.gold : colors.border,
+                borderRadius: 8,
+                backgroundColor: colors.input,
+              }}
+            >
+              <Text style={{ color: menu.productCategories[product.id] ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14 }}>
+                {menu.productCategories[product.id] || product.category || "بدون قسم"}
+              </Text>
+              <Icon name={openCategoryProductId === product.id ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+            </Pressable>
+            {openCategoryProductId === product.id && (
+              <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: "hidden", backgroundColor: colors.surface }}>
+                <Pressable
+                  onPress={() => {
+                    const nextAssignments = { ...menu.productCategories };
+                    delete nextAssignments[product.id];
+                    updateMenu({ productCategories: nextAssignments });
+                    setOpenCategoryProductId(null);
+                  }}
+                  style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                >
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right" }}>
+                    القسم الأصلي: {product.category || "بدون قسم"}
+                  </Text>
+                </Pressable>
+                {menu.categories.map((category) => {
+                  const selected = menu.productCategories[product.id] === category;
+                  return (
+                    <Pressable
+                      key={category}
+                      onPress={() => {
+                        updateMenu({ productCategories: { ...menu.productCategories, [product.id]: category } });
+                        setOpenCategoryProductId(null);
+                      }}
+                      style={{
+                        flexDirection: "row-reverse",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        borderBottomWidth: 1,
+                        borderBottomColor: colors.border,
+                        backgroundColor: selected ? colors.gold + "18" : colors.surface,
+                      }}
+                    >
+                      <Text style={{ color: selected ? colors.gold : colors.foreground, fontFamily: selected ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 13, textAlign: "right" }}>
+                        {category}
+                      </Text>
+                      {selected && <Icon name="check" size={15} color={colors.gold} />}
+                    </Pressable>
+                  );
+                })}
+                {menu.categories.length === 0 && (
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", padding: 12 }}>
+                    أضف قسمًا أولًا من قسم «أقسام القائمة»
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
         </View>
       </ScaleDecorator>
     ),
-    [colors, menu.productCategories]
+    [colors, menu.categories, menu.productCategories, openCategoryProductId, productGroupMeta]
   );
 
   const listHeader = (
@@ -241,7 +369,7 @@ export default function PriceMenuSettingsScreen() {
         ترتيب الخامات وتقسيمها
       </Text>
       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", marginBottom: 10 }}>
-        اضغط مطولاً على مقبض السحب ثم ضع الخامة في أي مكان. اسم القسم اختياري؛ الخامة غير المصنفة تظهر في قسمها الأصلي.
+        الخامات مجمعة داخل بطاقة حسب قسم قائمة الأسعار. اضغط مطولاً على مقبض السحب لإعادة ترتيب الخامات داخل البطاقة.
       </Text>
     </>
   );
@@ -250,7 +378,7 @@ export default function PriceMenuSettingsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader title="قائمة أسعار التجار" onBack={() => router.back()} />
       <DraggableFlatList
-        data={orderedProducts}
+        data={groupedProducts}
         keyExtractor={(item) => item.id}
         renderItem={renderProduct}
         ListHeaderComponent={listHeader}

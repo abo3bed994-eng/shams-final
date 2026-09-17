@@ -26,3 +26,5 @@
 - [Expo token failure](expo-token-workflow.md) — an invalid EXPO_TOKEN makes Expo Metro exit before QR/Expo Go is available; replace the secret securely, then restart the workflow.
 - [EAS build metadata](eas-build-metadata.md) — diagnose APK failures by checking profile, distribution, commit, and phase; generic install errors can hide a Production/Preview mismatch.
 - [Expo static build port](expo-static-build-port.md) — static Expo build assumes Metro on 8081; stop the Canvas workflow first when it owns that port.
+- [Shams Tex presence auth keys](shamstex-presence-session-keys.md) — presence uses Firebase UID for deployed-rule compatibility; never delete on cleanup because a new phone may own the same record.
+- [Shams Tex OTP throttle](shamstex-otp-throttle.md) — check limits without incrementing; record only Firebase-accepted sends, with the client limit aligned to Firestore's cap.

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Animated,
   FlatList,
@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import type { ScrollView as ScrollViewType } from "react-native";
 import { router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,8 +31,6 @@ export default function ProductsScreen() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(isRTL ? "الكل" : "All");
   const [activeSubcategory, setActiveSubcategory] = useState<string | null>(null);
-  const catScrollRef = useRef<ScrollViewType>(null);
-  const subCatScrollRef = useRef<ScrollViewType>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -109,7 +106,7 @@ export default function ProductsScreen() {
             >
               <Icon name="heart" size={22} color={colors.foreground} />
               {favorites.length > 0 && (
-                <View style={[styles.cartBadge, { backgroundColor: colors.gold }]}>
+                <View style={[styles.cartBadge, { backgroundColor: colors.gold, top: -5, right: -4 }]}>
                   <Text style={[styles.cartBadgeText, { color: colors.background }]}>
                     {favorites.length}
                   </Text>
@@ -209,13 +206,11 @@ export default function ProductsScreen() {
             </View>
 
             <ScrollView
-              ref={catScrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.catScroll}
-              onContentSizeChange={() => catScrollRef.current?.scrollToEnd({ animated: false })}
             >
-              {[...CATEGORIES].reverse().map((cat) => (
+              {CATEGORIES.map((cat) => (
                 <Pressable
                   key={cat}
                   onPress={() => handleCategoryPress(cat)}
@@ -245,13 +240,11 @@ export default function ProductsScreen() {
 
             {subcategoriesForActive.length > 0 && (
               <ScrollView
-                ref={subCatScrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.subCatScroll}
-                onContentSizeChange={() => subCatScrollRef.current?.scrollToEnd({ animated: false })}
               >
-                {[...subcategoriesForActive].reverse().map((sub) => (
+                {subcategoriesForActive.map((sub) => (
                   <Pressable
                     key={sub}
                     onPress={() => setActiveSubcategory(sub)}
@@ -376,7 +369,9 @@ const styles = StyleSheet.create({
   },
   catScroll: {
     gap: 8,
-    flexDirection: "row",
+    flexDirection: "row-reverse",
+    flexGrow: 1,
+    justifyContent: "flex-start",
   },
   catChip: {
     paddingHorizontal: 14,
@@ -389,7 +384,9 @@ const styles = StyleSheet.create({
   },
   subCatScroll: {
     gap: 8,
-    flexDirection: "row",
+    flexDirection: "row-reverse",
+    flexGrow: 1,
+    justifyContent: "flex-start",
   },
   subCatChip: {
     paddingHorizontal: 12,

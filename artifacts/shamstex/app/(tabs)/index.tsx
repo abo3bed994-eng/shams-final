@@ -128,7 +128,7 @@ export default function HomeScreen() {
     setTimeout(() => { navGuard.current = false; }, 800);
   }, []);
 
-  const handleScrollEndDrag = useCallback((event: any) => {
+  const markHomeBottom = useCallback((event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const atBottom = contentSize.height > layoutMeasurement.height && contentOffset.y + layoutMeasurement.height >= contentSize.height - 24;
     if (atBottom) homeBottomArmed.current = true;
@@ -286,8 +286,10 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 100 }]}
+        onScroll={markHomeBottom}
         onScrollBeginDrag={handleScrollBeginDrag}
-        onScrollEndDrag={handleScrollEndDrag}
+        onScrollEndDrag={markHomeBottom}
+        onMomentumScrollEnd={markHomeBottom}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
@@ -638,11 +640,11 @@ const styles = StyleSheet.create({
   },
   section: { gap: 14, paddingHorizontal: 16 },
   sectionHeader: {
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  sectionTitle: { fontSize: 20, letterSpacing: 0.2 },
+  sectionTitle: { fontSize: 22, letterSpacing: 0.2, textAlign: "right" },
   seeAll: { fontSize: 15 },
   emptyText: { textAlign: "center", fontSize: 14, paddingVertical: 20 },
 });

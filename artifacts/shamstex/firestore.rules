@@ -257,9 +257,16 @@ service cloud.firestore {
 
     // ============ Presence (online counter) ============
     // Heartbeat doc per logged-in user; staff read it to show the online count.
-    match /presence/{userId} {
+    match /presence/{authUid} {
       allow read: if isStaff();
-      allow write: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && authUid == request.auth.uid
+        && request.resource.data.userId is string
+        && request.resource.data.name is string
+        && request.resource.data.role is string
+        && request.resource.data.phone is string
+        && request.resource.data.lastSeen is int;
+      allow delete: if isSignedIn() && authUid == request.auth.uid;
     }
 
     // ============ Audit Log ============

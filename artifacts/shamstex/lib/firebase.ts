@@ -547,7 +547,11 @@ export const FS = {
   },
 
   async setPresence(userId: string, info: { name: string; role: string; phone?: string }) {
-    await setDoc(doc(db, "presence", userId), {
+    const authUid = (auth as any)?.currentUser?.uid as string | undefined;
+    if (!authUid) {
+      throw new Error("presence/auth-not-ready");
+    }
+    await setDoc(doc(db, "presence", authUid), {
       userId,
       name: info.name,
       role: info.role,
@@ -556,25 +560,78 @@ export const FS = {
     });
   },
 
-  async clearPresence(userId: string) {
-    await deleteDoc(doc(db, "presence", userId)).catch(() => {});
-  },
-
   subscribePresence(callback: (entries: { userId: string; name: string; role: string; phone: string; lastSeen: number }[]) => void): Unsubscribe {
-    return onSnapshot(collection(db, "presence"), (snap) => {
-      callback(snap.docs.map((d) => d.data() as any));
-    });
+    let stopped = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let unsubscribe: Unsubscribe = () => {};
+
+    const listen = () => {
+      if (stopped) return;
+      unsubscribe = onSnapshot(
+        collection(db, "presence"),
+        (snap) => {
+          callback(snap.docs.map((d) => d.data() as any));
+        },
+        (error: any) => {
+          if (__DEV__) {
+            console.warn("[Presence listener]", error?.code || error?.message || String(error));
+          }
+          // Auth can be restored shortly after the cached app user. Retry the
+          // listener instead of leaving the admin counter permanently empty
+          // after one unauthenticated/temporary Firestore error.
+          if (stopped || retryTimer) return;
+          retryTimer = setTimeout(() => {
+            retryTimer = null;
+            unsubscribe();
+            listen();
+          }, 5_000);
+        },
+      );
+    };
+
+    listen();
+    return () => {
+      stopped = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = null;
+      unsubscribe();
+    };
   },
 
-  // OTP rate limiting — keyed by canonical phone. Returns whether the request
-  // is allowed AND a retry-after message if blocked. Uses a transaction so
-  // concurrent requests cannot bypass the limit.
+  // OTP rate limiting — keyed by canonical phone. Checking is read-only so a
+  // failed Firebase send does not consume one of the user's allowed messages.
   async checkOtpThrottle(
     phone: string,
     options: { maxPerWindow?: number; windowMs?: number } = {}
   ): Promise<{ allowed: boolean; retryAfterMs?: number; remaining?: number }> {
-    const max = options.maxPerWindow ?? 5;
+    const max = options.maxPerWindow ?? 10;
     const win = options.windowMs ?? 24 * 60 * 60 * 1000; // 24h
+    const key = sessionKey(phone);
+    const ref = doc(db, "otpThrottle", key);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      return { allowed: true, remaining: max };
+    }
+    const data = snap.data() as any;
+    const now = Date.now();
+    const elapsed = now - (data.windowStart || 0);
+    if (elapsed >= win) {
+      return { allowed: true, remaining: max };
+    }
+    const count = data.count || 0;
+    if (count >= max) {
+      return { allowed: false, retryAfterMs: win - elapsed, remaining: 0 };
+    }
+    return { allowed: true, remaining: max - count };
+  },
+
+  // Record only an OTP that Firebase accepted for delivery.
+  async recordOtpSent(
+    phone: string,
+    options: { maxPerWindow?: number; windowMs?: number } = {}
+  ): Promise<void> {
+    const max = options.maxPerWindow ?? 10;
+    const win = options.windowMs ?? 24 * 60 * 60 * 1000;
     const key = sessionKey(phone);
     const ref = doc(db, "otpThrottle", key);
     return await runTransaction(db, async (tx) => {
@@ -582,20 +639,18 @@ export const FS = {
       const now = Date.now();
       if (!snap.exists()) {
         tx.set(ref, { count: 1, windowStart: now, phone });
-        return { allowed: true, remaining: max - 1 };
+        return;
       }
       const data = snap.data() as any;
       const elapsed = now - (data.windowStart || 0);
       if (elapsed >= win) {
-        // Window expired — reset.
         tx.set(ref, { count: 1, windowStart: now, phone });
-        return { allowed: true, remaining: max - 1 };
+        return;
       }
       if ((data.count || 0) >= max) {
-        return { allowed: false, retryAfterMs: win - elapsed };
+        return;
       }
       tx.update(ref, { count: (data.count || 0) + 1 });
-      return { allowed: true, remaining: max - 1 - (data.count || 0) };
     });
   },
 };

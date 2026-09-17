@@ -179,8 +179,8 @@ export default function PriceMenuScreen() {
                   )}
                 </View>
                 <View style={styles.priceWrap}>
-                  {product.priceTrend === "up" && <Icon name="chevron-up" size={18} color="#27AE60" />}
-                  {product.priceTrend === "down" && <Icon name="chevron-down" size={18} color="#E74C3C" />}
+                  {product.priceTrend === "up" && <Text style={{ color: "#27AE60", fontSize: 17, lineHeight: 18, fontFamily: "Inter_700Bold" }}>▲</Text>}
+                  {product.priceTrend === "down" && <Text style={{ color: "#E74C3C", fontSize: 17, lineHeight: 18, fontFamily: "Inter_700Bold" }}>▼</Text>}
                   <Text style={[styles.price, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>{displayPriceFor(product, effectivePriceMode)} ج.م</Text>
                 </View>
               </View>

@@ -28,8 +28,15 @@ function getNativeAuth() {
   }
 }
 
-export async function startPhoneSignIn(e164Phone: string): Promise<PhoneAuthConfirmation> {
+export async function startPhoneSignIn(
+  e164Phone: string,
+  options: { disableAppVerificationForTesting?: boolean } = {}
+): Promise<PhoneAuthConfirmation> {
   if (Platform.OS === "web") {
+    // Firebase fictional test numbers can skip reCAPTCHA in development. This
+    // must never be enabled for normal numbers or production builds.
+    webAuth.settings.appVerificationDisabledForTesting =
+      __DEV__ && options.disableAppVerificationForTesting === true;
     const verifier = setupRecaptcha();
     const result: WebConfirmationResult = await webSignInWithPhone(webAuth, e164Phone, verifier);
     return {

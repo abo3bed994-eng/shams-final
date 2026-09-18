@@ -52,7 +52,14 @@ function itemMeasure(item: CartItem, product?: Product): string {
   return `${formatNumber(amount)} ${unitLabel(unit)}`;
 }
 
-function companionMeasure(companion: NonNullable<CartItem["companions"]>[number]): string {
+function companionMeasure(
+  companion: NonNullable<CartItem["companions"]>[number],
+  parentOrderType: CartItem["orderType"],
+): string {
+  if (parentOrderType === "pieces") {
+    return `${formatNumber(companion.percentage)}% — ${formatNumber(companionAmount(companion))} ${unitLabel(companion.unit)}`;
+  }
+
   if (companion.orderType === "pieces") {
     return `${formatNumber(companion.quantity)} ثوب — ${formatNumber(defaultPieceAmount(companion.quantity, companion.unit))} ${unitLabel(companion.unit)} (افتراضي)`;
   }
@@ -79,7 +86,7 @@ export function buildPackingSlipHtml(order: Order, products: Product[]): string 
             <div class="companion">
               <span class="companion-name">خامة مرافقة: ${escapeHtml(companion.materialName)}</span>
               ${colorHtml(companion.colorName, companion.colorHex)}
-              <span class="measure">${companionMeasure(companion)}</span>
+              <span class="measure">${companionMeasure(companion, item.orderType)}</span>
             </div>
           `,
         )
@@ -111,7 +118,7 @@ export function buildPackingSlipHtml(order: Order, products: Product[]): string 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ورقة تجهيز الطلب #${escapeHtml(order.id.slice(0, 12))}</title>
     <style>
-      @page { size: A4; margin: 13mm; }
+      @page { size: A4 portrait; margin: 10mm; }
       * { box-sizing: border-box; }
       body {
         margin: 0;
@@ -122,7 +129,12 @@ export function buildPackingSlipHtml(order: Order, products: Product[]): string 
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
-      .page { width: 100%; }
+      .page {
+        width: 100%;
+        max-width: 190mm;
+        min-height: 277mm;
+        margin: 0 auto;
+      }
       .brand {
         display: flex;
         align-items: flex-start;

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { router } from "expo-router";
@@ -32,6 +32,7 @@ export default function PriceMenuScreen() {
   const insets = useSafeAreaInsets();
   const { user, products, settings, canViewPriceMenu, effectivePriceMode } = useApp();
   const [busy, setBusy] = useState<"print" | "share" | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const menu = getMenu(settings);
   const isMerchant = user?.role === "merchant";
   const priceLabel = effectivePriceMode === "wholesale" ? "أسعار التجار" : "أسعار العملاء";
@@ -64,6 +65,20 @@ export default function PriceMenuScreen() {
       return aRank - bRank || a.localeCompare(b, "ar");
     });
   }, [menu.categories, menu.productCategories, orderedProducts]);
+
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase("ar-EG");
+  const visibleGroups = useMemo(
+    () =>
+      groups
+        .map(([category, items]) => [
+          category,
+          normalizedSearch
+            ? items.filter((product) => product.name.toLocaleLowerCase("ar-EG").includes(normalizedSearch))
+            : items,
+        ] as [string, typeof orderedProducts])
+        .filter(([, items]) => items.length > 0),
+    [groups, normalizedSearch],
+  );
 
   const html = useMemo(() => buildPriceMenuHtml(products, menu, effectivePriceMode), [effectivePriceMode, menu, products]);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -160,9 +175,34 @@ export default function PriceMenuScreen() {
           </View>
         </View>
 
-        {groups.length === 0 ? (
-          <Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>لا توجد خامات في القائمة</Text>
-        ) : groups.map(([category, items]) => (
+        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Icon name="search" size={19} color={colors.mutedForeground} />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="ابحث باسم الخامة"
+            placeholderTextColor={colors.mutedForeground}
+            textAlign="right"
+            returnKeyType="search"
+            style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
+            accessibilityLabel="البحث في قائمة الأسعار"
+          />
+          {!!searchQuery && (
+            <Pressable
+              onPress={() => setSearchQuery("")}
+              accessibilityLabel="مسح البحث"
+              style={styles.clearSearch}
+            >
+              <Icon name="x" size={17} color={colors.mutedForeground} />
+            </Pressable>
+          )}
+        </View>
+
+        {visibleGroups.length === 0 ? (
+          <Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+            {normalizedSearch ? "لا توجد خامات مطابقة للبحث" : "لا توجد خامات في القائمة"}
+          </Text>
+        ) : visibleGroups.map(([category, items]) => (
           <View key={category} style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.sectionTitleRow, { borderBottomColor: colors.gold + "66" }]}>
               <Icon name="layers" size={18} color={colors.gold} />
@@ -201,6 +241,17 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: "row-reverse" },
   headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 14 },
+  searchBox: {
+    minHeight: 48,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 9,
+    paddingHorizontal: 13,
+    borderRadius: 13,
+    borderWidth: 1,
+  },
+  searchInput: { flex: 1, minHeight: 46, fontSize: 14, paddingVertical: 0 },
+  clearSearch: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
   hero: { minHeight: 116, borderRadius: 16, borderWidth: 1, overflow: "hidden", justifyContent: "center" },
   heroOverlay: { alignItems: "center", gap: 5, padding: 18 },
   heroTitle: { fontSize: 20 },

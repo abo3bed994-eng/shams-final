@@ -84,7 +84,7 @@ function MovingTabBubble({
         styles.movingBubble,
         {
           backgroundColor: color,
-          left: tabWidth / 2 - 25,
+            left: tabWidth / 2 - 29,
           transform: [{
             translateX: position.interpolate({
               inputRange: [0, 1, 2, 3, 4],
@@ -278,17 +278,17 @@ const styles = StyleSheet.create({
   activeTabContent: {
     position: "absolute",
     top: -7,
-    width: 50,
-    height: 50,
+    width: 58,
+    height: 58,
     justifyContent: "center",
     gap: 0,
   },
   movingBubble: {
     position: "absolute",
     top: -7,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 4,
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   cartTabBadgeText: { color: "#fff", fontSize: 9, fontFamily: "Inter_700Bold" },
   tabLabel: { fontSize: 11 },
-  activeTabLabel: { fontSize: 10, maxWidth: 46 },
+  activeTabLabel: { fontSize: 10, maxWidth: 56 },
   badge: {
     position: "absolute",
     right: -10,

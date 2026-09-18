@@ -127,38 +127,44 @@ export default function OfflineGate() {
       <View style={[StyleSheet.absoluteFill, styles.tint]} />
 
       <View style={styles.center}>
-        <View style={styles.iconHalo}>
-          <View
-            style={[
-              styles.iconRingOuter,
-              { borderColor: colors.gold, shadowColor: colors.gold },
-            ]}
-          >
+        <View style={styles.offlineCard}>
+          <View style={styles.iconHalo}>
             <View
               style={[
-                styles.iconRingInner,
-                { borderColor: colors.gold, backgroundColor: "rgba(0,0,0,0.55)" },
+                styles.iconRingOuter,
+                { borderColor: colors.gold, shadowColor: colors.gold },
               ]}
             >
-              <Icon name="wifi-off" size={46} color={colors.gold} />
+              <View
+                style={[
+                  styles.iconRingInner,
+                  { borderColor: colors.gold, backgroundColor: "rgba(0,0,0,0.55)" },
+                ]}
+              >
+                <Icon name="wifi-off" size={38} color={colors.gold} />
+              </View>
             </View>
           </View>
-        </View>
-        <Text style={[styles.title, { color: colors.gold }]}>لا يوجد اتصال بالإنترنت</Text>
-        <Text style={styles.subtitle}>
-          سيعود التطبيق تلقائياً بمجرد عودة الاتصال.
-        </Text>
+          <View style={styles.statusPill}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>الاتصال غير متاح</Text>
+          </View>
+          <Text style={[styles.title, { color: colors.gold }]}>لا يوجد اتصال بالإنترنت</Text>
+          <Text style={styles.subtitle}>
+            سيعود التطبيق تلقائياً بمجرد عودة الاتصال.
+          </Text>
 
-        <Pressable
-          onPress={() => setRetryTick((n) => n + 1)}
-          style={({ pressed }) => [
-            styles.retryBtn,
-            { backgroundColor: colors.gold, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Icon name="refresh-cw" size={16} color="#000" />
-          <Text style={styles.retryText}>إعادة المحاولة</Text>
-        </Pressable>
+          <Pressable
+            onPress={() => setRetryTick((n) => n + 1)}
+            style={({ pressed }) => [
+              styles.retryBtn,
+              { backgroundColor: colors.gold, opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Icon name="refresh-cw" size={16} color="#000" />
+            <Text style={styles.retryText}>إعادة المحاولة</Text>
+          </Pressable>
+        </View>
       </View>
     </Animated.View>
   );
@@ -177,17 +183,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 28,
-    gap: 14,
+  },
+  offlineCard: {
+    width: "100%",
+    maxWidth: 360,
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(20,20,20,0.78)",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
   },
   iconHalo: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 6,
+    marginBottom: 10,
   },
   iconRingOuter: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -197,18 +218,41 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   iconRingInner: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
+  },
+  statusPill: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(192,57,43,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(231,76,60,0.35)",
+    marginBottom: 2,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#E74C3C",
+  },
+  statusText: {
+    color: "rgba(255,255,255,0.86)",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
   },
   title: {
     fontSize: 22,
     fontFamily: "Inter_700Bold",
     textAlign: "center",
-    marginTop: 6,
+    marginTop: 10,
     letterSpacing: 0.5,
   },
   subtitle: {
@@ -219,13 +263,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   retryBtn: {
-    marginTop: 14,
+    marginTop: 18,
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 22,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   retryText: {
     color: "#000",

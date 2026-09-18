@@ -121,6 +121,8 @@ export default function HomeScreen() {
 
   const navGuard = useRef(false);
   const homeBottomArmed = useRef(false);
+  const homeTouchStartY = useRef<number | null>(null);
+  const homeBottomAtTouchStart = useRef(false);
   const safePush = useCallback((path: string) => {
     if (navGuard.current) return;
     navGuard.current = true;
@@ -131,14 +133,24 @@ export default function HomeScreen() {
   const markHomeBottom = useCallback((event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const atBottom = contentSize.height > layoutMeasurement.height && contentOffset.y + layoutMeasurement.height >= contentSize.height - 24;
-    if (atBottom) homeBottomArmed.current = true;
+    homeBottomArmed.current = atBottom;
   }, []);
 
-  const handleScrollBeginDrag = useCallback(() => {
-    if (homeBottomArmed.current) {
+  const handleHomeTouchStart = useCallback((event: any) => {
+    homeTouchStartY.current = event.nativeEvent.pageY;
+    homeBottomAtTouchStart.current = homeBottomArmed.current;
+  }, []);
+
+  const handleHomeTouchEnd = useCallback((event: any) => {
+    const startY = homeTouchStartY.current;
+    const endY = event.nativeEvent.pageY;
+    const isNewDownwardScroll = startY !== null && startY - endY >= 32;
+    if (homeBottomAtTouchStart.current && isNewDownwardScroll) {
       homeBottomArmed.current = false;
       safePush("/(tabs)/products");
     }
+    homeTouchStartY.current = null;
+    homeBottomAtTouchStart.current = false;
   }, [safePush]);
 
   const { isNotifReadForUser } = useApp();
@@ -287,9 +299,10 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 100 }]}
         onScroll={markHomeBottom}
-        onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={markHomeBottom}
         onMomentumScrollEnd={markHomeBottom}
+        onTouchStart={handleHomeTouchStart}
+        onTouchEnd={handleHomeTouchEnd}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl

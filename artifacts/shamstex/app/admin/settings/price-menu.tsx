@@ -387,7 +387,7 @@ export default function PriceMenuSettingsScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           updateMenu({ productOrder: data.map((product) => product.id) });
         }}
-        contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 180 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       />

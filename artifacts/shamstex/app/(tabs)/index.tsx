@@ -3,6 +3,7 @@ import {
   Animated,
   AppState,
   Image,
+  PanResponder,
   Platform,
   Pressable,
   RefreshControl,
@@ -121,9 +122,6 @@ export default function HomeScreen() {
 
   const navGuard = useRef(false);
   const homeBottomArmed = useRef(false);
-  const homeTouchStartY = useRef<number | null>(null);
-  const homeTouchLastY = useRef<number | null>(null);
-  const homeBottomAtTouchStart = useRef(false);
   const safePush = useCallback((path: string) => {
     if (navGuard.current) return;
     navGuard.current = true;
@@ -131,42 +129,28 @@ export default function HomeScreen() {
     setTimeout(() => { navGuard.current = false; }, 800);
   }, []);
 
+  const homeSwipeResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponderCapture: (_, gesture) =>
+          homeBottomArmed.current &&
+          gesture.dy < -18 &&
+          Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderRelease: (_, gesture) => {
+          if (homeBottomArmed.current && gesture.dy <= -48) {
+            homeBottomArmed.current = false;
+            safePush("/(tabs)/products");
+          }
+        },
+      }),
+    [safePush],
+  );
+
   const markHomeBottom = useCallback((event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const atBottom = contentSize.height > layoutMeasurement.height && contentOffset.y + layoutMeasurement.height >= contentSize.height - 24;
     homeBottomArmed.current = atBottom;
-  }, []);
-
-  const handleHomeTouchStart = useCallback((event: any) => {
-    const y = event.nativeEvent.pageY ?? event.nativeEvent.locationY;
-    homeTouchStartY.current = typeof y === "number" ? y : null;
-    homeTouchLastY.current = homeTouchStartY.current;
-    homeBottomAtTouchStart.current = homeBottomArmed.current;
-  }, []);
-
-  const handleHomeTouchMove = useCallback((event: any) => {
-    const y = event.nativeEvent.pageY ?? event.nativeEvent.locationY;
-    if (typeof y === "number") homeTouchLastY.current = y;
-  }, []);
-
-  const handleHomeTouchEnd = useCallback((event: any) => {
-    const startY = homeTouchStartY.current;
-    const eventY = event.nativeEvent.pageY ?? event.nativeEvent.locationY;
-    const endY = typeof eventY === "number" ? eventY : homeTouchLastY.current;
-    const isNewDownwardScroll = startY !== null && endY !== null && startY - endY >= 24;
-    if (homeBottomAtTouchStart.current && isNewDownwardScroll) {
-      homeBottomArmed.current = false;
-      safePush("/(tabs)/products");
-    }
-    homeTouchStartY.current = null;
-    homeTouchLastY.current = null;
-    homeBottomAtTouchStart.current = false;
-  }, [safePush]);
-
-  const handleHomeTouchCancel = useCallback(() => {
-    homeTouchStartY.current = null;
-    homeTouchLastY.current = null;
-    homeBottomAtTouchStart.current = false;
   }, []);
 
   const { isNotifReadForUser } = useApp();
@@ -312,15 +296,12 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
+        {...homeSwipeResponder.panHandlers}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 100 }]}
         onScroll={markHomeBottom}
         onScrollEndDrag={markHomeBottom}
         onMomentumScrollEnd={markHomeBottom}
-        onTouchStart={handleHomeTouchStart}
-        onTouchMove={handleHomeTouchMove}
-        onTouchEnd={handleHomeTouchEnd}
-        onTouchCancel={handleHomeTouchCancel}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl

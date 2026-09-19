@@ -65,7 +65,13 @@ export default React.memo(function ProductCard({ product, onPress }: ProductCard
             </View>
           )}
 
-          <View style={styles.categoryBadge}>
+          {product.priceMenuNew && (
+            <View style={styles.newBadge} pointerEvents="none">
+              <Text style={[styles.newBadgeText, { fontFamily: "Inter_700Bold" }]}>NEW</Text>
+            </View>
+          )}
+
+          <View style={[styles.categoryBadge, product.priceMenuNew && styles.categoryBadgeBelowNew]}>
             <Text style={[styles.categoryText, { color: colors.goldLight, fontFamily: "Inter_600SemiBold" }]}>
               {product.category}
             </Text>
@@ -202,6 +208,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
+  },
+  categoryBadgeBelowNew: {
+    top: 46,
+  },
+  newBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    zIndex: 6,
+    backgroundColor: "#D32F2F",
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderBottomLeftRadius: 14,
+  },
+  newBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    letterSpacing: 0.5,
   },
   outOfStockBadge: {
     position: "absolute",

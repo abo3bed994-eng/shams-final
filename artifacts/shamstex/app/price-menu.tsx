@@ -30,7 +30,15 @@ function getMenu(settings: { priceMenu?: Partial<PriceMenuSettings> }): PriceMen
 export default function PriceMenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, products, settings, canViewPriceMenu, effectivePriceMode } = useApp();
+  const {
+    user,
+    products,
+    settings,
+    canViewPriceMenu,
+    setPricingView,
+    canTogglePricing,
+    effectivePriceMode,
+  } = useApp();
   const [busy, setBusy] = useState<"print" | "share" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const menu = getMenu(settings);
@@ -175,6 +183,51 @@ export default function PriceMenuScreen() {
           </View>
         </View>
 
+        {canTogglePricing && (
+          <View style={[styles.pricingToggleCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.pricingToggleLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+              عرض الأسعار
+            </Text>
+            <View style={[styles.pricingToggleOptions, { borderColor: colors.border }]}>
+              {([
+                { value: "wholesale", label: "أسعار التجار" },
+                { value: "retail", label: "أسعار العملاء" },
+              ] as const).map((option) => {
+                const active = effectivePriceMode === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => setPricingView(option.value)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={`عرض ${option.label}`}
+                    testID={`price-menu-toggle-${option.value}`}
+                    style={[
+                      styles.pricingToggleOption,
+                      {
+                        backgroundColor: active ? colors.gold + "33" : "transparent",
+                        borderColor: active ? colors.gold : "transparent",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.pricingToggleText,
+                        {
+                          color: active ? colors.gold : colors.mutedForeground,
+                          fontFamily: active ? "Inter_700Bold" : "Inter_400Regular",
+                        },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Icon name="search" size={19} color={colors.mutedForeground} />
           <TextInput
@@ -256,6 +309,34 @@ const styles = StyleSheet.create({
   heroOverlay: { alignItems: "center", gap: 5, padding: 18 },
   heroTitle: { fontSize: 20 },
   heroCaption: { fontSize: 12 },
+  pricingToggleCard: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  pricingToggleLabel: { fontSize: 12 },
+  pricingToggleOptions: {
+    flex: 1,
+    flexDirection: "row-reverse",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 3,
+    gap: 3,
+  },
+  pricingToggleOption: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 34,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderRadius: 9,
+  },
+  pricingToggleText: { fontSize: 11, textAlign: "center" },
   section: { borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, overflow: "hidden" },
   sectionTitleRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingVertical: 12, borderBottomWidth: 2 },
   sectionTitle: { fontSize: 16 },

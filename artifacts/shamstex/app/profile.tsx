@@ -152,7 +152,7 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {user.role !== "customer" && (
+        {user.role !== "customer" && user.role !== "merchant" && (
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
               <Text style={[styles.statNum, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>

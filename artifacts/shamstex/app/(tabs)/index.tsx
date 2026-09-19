@@ -122,6 +122,7 @@ export default function HomeScreen() {
   const navGuard = useRef(false);
   const homeBottomArmed = useRef(false);
   const homeTouchStartY = useRef<number | null>(null);
+  const homeTouchLastY = useRef<number | null>(null);
   const homeBottomAtTouchStart = useRef(false);
   const safePush = useCallback((path: string) => {
     if (navGuard.current) return;
@@ -137,21 +138,36 @@ export default function HomeScreen() {
   }, []);
 
   const handleHomeTouchStart = useCallback((event: any) => {
-    homeTouchStartY.current = event.nativeEvent.pageY;
+    const y = event.nativeEvent.pageY ?? event.nativeEvent.locationY;
+    homeTouchStartY.current = typeof y === "number" ? y : null;
+    homeTouchLastY.current = homeTouchStartY.current;
     homeBottomAtTouchStart.current = homeBottomArmed.current;
+  }, []);
+
+  const handleHomeTouchMove = useCallback((event: any) => {
+    const y = event.nativeEvent.pageY ?? event.nativeEvent.locationY;
+    if (typeof y === "number") homeTouchLastY.current = y;
   }, []);
 
   const handleHomeTouchEnd = useCallback((event: any) => {
     const startY = homeTouchStartY.current;
-    const endY = event.nativeEvent.pageY;
-    const isNewDownwardScroll = startY !== null && startY - endY >= 32;
+    const eventY = event.nativeEvent.pageY ?? event.nativeEvent.locationY;
+    const endY = typeof eventY === "number" ? eventY : homeTouchLastY.current;
+    const isNewDownwardScroll = startY !== null && endY !== null && startY - endY >= 24;
     if (homeBottomAtTouchStart.current && isNewDownwardScroll) {
       homeBottomArmed.current = false;
       safePush("/(tabs)/products");
     }
     homeTouchStartY.current = null;
+    homeTouchLastY.current = null;
     homeBottomAtTouchStart.current = false;
   }, [safePush]);
+
+  const handleHomeTouchCancel = useCallback(() => {
+    homeTouchStartY.current = null;
+    homeTouchLastY.current = null;
+    homeBottomAtTouchStart.current = false;
+  }, []);
 
   const { isNotifReadForUser } = useApp();
   const myNotifications = useMemo(
@@ -302,7 +318,9 @@ export default function HomeScreen() {
         onScrollEndDrag={markHomeBottom}
         onMomentumScrollEnd={markHomeBottom}
         onTouchStart={handleHomeTouchStart}
+        onTouchMove={handleHomeTouchMove}
         onTouchEnd={handleHomeTouchEnd}
+        onTouchCancel={handleHomeTouchCancel}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl

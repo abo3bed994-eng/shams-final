@@ -1,0 +1,90 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #090909;
+}
+
+@keyframes offline-wifi-pulse {
+  0% {
+    opacity: 0.42;
+    transform: scale(0.82);
+  }
+  60%,
+  100% {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+}
+
+@keyframes offline-wifi-float {
+  0%,
+  100% {
+    transform: translateY(1px);
+  }
+  55% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes offline-wifi-dot {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.78);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.offline-wifi-pulse {
+  position: absolute;
+  width: 58px;
+  height: 58px;
+  border: 1.5px solid #b09245;
+  border-radius: 50%;
+  animation: offline-wifi-pulse 2.1s ease-out infinite;
+}
+
+.offline-wifi-symbol {
+  position: relative;
+  display: grid;
+  place-items: center;
+  animation: offline-wifi-float 2.1s ease-in-out infinite;
+}
+
+.offline-wifi-dot {
+  position: absolute;
+  bottom: 2px;
+  left: 17px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #b09245;
+  box-shadow: 0 0 8px rgba(176, 146, 69, 0.85);
+  animation: offline-wifi-dot 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offline-wifi-pulse,
+  .offline-wifi-symbol,
+  .offline-wifi-dot {
+    animation: none;
+  }
+}

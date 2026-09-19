@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
+import { Wifi } from "lucide-react-native";
 import Icon from "./Icon";
 import { useColors } from "@/hooks/useColors";
 
@@ -46,6 +47,7 @@ export default function OfflineGate() {
   const [retryTick, setRetryTick] = useState(0);
   const failuresRef = useRef(0);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const wifiPulse = useRef(new Animated.Value(0)).current;
   const offline = netOffline || pingOffline;
 
   useEffect(() => {
@@ -112,6 +114,31 @@ export default function OfflineGate() {
     }).start();
   }, [offline]);
 
+  useEffect(() => {
+    if (!offline) {
+      wifiPulse.stopAnimation();
+      wifiPulse.setValue(0);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(wifiPulse, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+        Animated.timing(wifiPulse, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [offline, wifiPulse]);
+
   if (!offline) return null;
 
   return (
@@ -141,13 +168,66 @@ export default function OfflineGate() {
                   { borderColor: colors.gold, backgroundColor: "rgba(0,0,0,0.55)" },
                 ]}
               >
-                <Icon name="wifi-off" size={38} color={colors.gold} />
+                <Animated.View
+                  style={[
+                    styles.signalPulse,
+                    {
+                      borderColor: colors.gold,
+                      opacity: wifiPulse.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.42, 0],
+                      }),
+                      transform: [
+                        {
+                          scale: wifiPulse.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.82, 1.25],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+                <Animated.View
+                  style={[
+                    styles.wifiSymbol,
+                    {
+                      transform: [
+                        {
+                          translateY: wifiPulse.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [1, -2],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <Wifi size={42} strokeWidth={2.35} color={colors.gold} />
+                  <Animated.View
+                    style={[
+                      styles.signalDot,
+                      {
+                        backgroundColor: colors.gold,
+                        shadowColor: colors.gold,
+                        opacity: wifiPulse.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.55, 1],
+                        }),
+                        transform: [
+                          {
+                            scale: wifiPulse.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0.78, 1.2],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  />
+                </Animated.View>
               </View>
             </View>
-          </View>
-          <View style={styles.statusPill}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>الاتصال غير متاح</Text>
           </View>
           <Text style={[styles.title, { color: colors.gold }]}>لا يوجد اتصال بالإنترنت</Text>
           <Text style={styles.subtitle}>
@@ -224,35 +304,36 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "visible",
   },
-  statusPill: {
-    flexDirection: "row-reverse",
+  signalPulse: {
+    position: "absolute",
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 1.5,
+  },
+  wifiSymbol: {
+    position: "relative",
     alignItems: "center",
-    gap: 7,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(192,57,43,0.18)",
-    borderWidth: 1,
-    borderColor: "rgba(231,76,60,0.35)",
-    marginBottom: 2,
+    justifyContent: "center",
   },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "#E74C3C",
-  },
-  statusText: {
-    color: "rgba(255,255,255,0.86)",
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
+  signalDot: {
+    position: "absolute",
+    bottom: 2,
+    left: 17,
+    width: 8,
+    height: 8,
+    borderRadius: 5,
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
   },
   title: {
     fontSize: 22,
     fontFamily: "Inter_700Bold",
     textAlign: "center",
-    marginTop: 10,
     letterSpacing: 0.5,
   },
   subtitle: {
